@@ -15,7 +15,7 @@ const SideNav = () => {
   const { activeTab, setActiveTab } = useAppStore();
 
   const handleChange = (
-    event: React.SyntheticEvent,
+    _event: React.SyntheticEvent,
     newValue: "dashboard" | "employees" | "attendance" | "reports",
   ) => {
     setActiveTab(newValue);
