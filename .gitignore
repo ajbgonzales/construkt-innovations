@@ -1,0 +1,54 @@
+# -------------------------
+# Python / FastAPI backend
+# -------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# Virtual environments
+venv/
+.venv/
+
+# Environment files
+.env
+.env.*
+
+# Misc files
+incoming/
+records/
+processed_state.json
+
+
+# -------------------------
+# Node / React frontend
+# -------------------------
+node_modules/
+dist/
+.vite/
+
+# Build artifacts
+*.log
+
+
+# -------------------------
+# OS / Editor files
+# -------------------------
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# JetBrains
+.idea/
+
+# -------------------------
+# Docker
+# -------------------------
+*.dockerfile
+docker-compose.override.yml
