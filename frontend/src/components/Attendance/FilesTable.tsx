@@ -71,6 +71,10 @@ const COLUMNS: Column[] = [
 const FilesTable = () => {
   const { files, values } = useAttendanceStore();
 
+  const isProcessFilesDisabled = () => {
+    return Object.values(values).some((v) => v.projectName.trim() === "");
+  };
+
   const { mutate } = useMutation({
     mutationFn: (formData: FormData) =>
       api.post("/process_attendance_records", formData, {
@@ -136,6 +140,7 @@ const FilesTable = () => {
           <TableRow sx={{ background: "#F2F4F6" }}>
             <TableCell colSpan={6} align="right">
               <StyledButton
+                disabled={isProcessFilesDisabled()}
                 onClick={handleProcessFiles}
                 sx={{ border: "1px solid #F5A623", background: "#F5A623" }}
               >
