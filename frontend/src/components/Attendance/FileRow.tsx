@@ -4,7 +4,7 @@ import {
   Box,
   Checkbox,
   IconButton,
-  InputAdornment,
+  // InputAdornment,
   TableRow,
   TextField,
   Tooltip,
@@ -27,18 +27,18 @@ interface FileRowProps {
 const FileRow: FC<FileRowProps> = ({ fileName }) => {
   const { values, updateValues, removeFile } = useAttendanceStore();
 
-  const handleChangeWorkingDays = (
-    rowId: string,
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement, Element>,
-  ) => {
-    const input = e.target.value;
-    if (
-      input === "" ||
-      (/^\d*$/.test(input) && Number(input) >= 1 && Number(input) <= 7)
-    ) {
-      updateValues(rowId, "workingDays", input);
-    }
-  };
+  // const handleChangeWorkingDays = (
+  //   rowId: string,
+  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement, Element>,
+  // ) => {
+  //   const input = e.target.value;
+  //   if (
+  //     input === "" ||
+  //     (/^\d*$/.test(input) && Number(input) >= 1 && Number(input) <= 7)
+  //   ) {
+  //     updateValues(rowId, "workingDays", input);
+  //   }
+  // };
 
   return (
     <TableRow>
@@ -95,7 +95,7 @@ const FileRow: FC<FileRowProps> = ({ fileName }) => {
           }
         />
       </StyledTableCell>
-      <StyledTableCell>
+      {/* <StyledTableCell>
         <TextField
           variant="outlined"
           value={values[fileName].workingDays}
@@ -109,7 +109,7 @@ const FileRow: FC<FileRowProps> = ({ fileName }) => {
             },
           }}
         />
-      </StyledTableCell>
+      </StyledTableCell> */}
       <StyledTableCell sx={{ textAlign: "center" }}>
         <IconButton
           onClick={() => removeFile(fileName)}

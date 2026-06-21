@@ -16,13 +16,13 @@ def get_metadata(projects_metadata: dict):
     start_time = projects_metadata["start_time"]
     is_compressed = projects_metadata["is_compressed"]
     is_overtime = projects_metadata["is_overtime"]
-    working_days = projects_metadata["working_days"]
+    # working_days = projects_metadata["working_days"]
 
-    return project_name, start_time, is_compressed, is_overtime, working_days
+    return project_name, start_time, is_compressed, is_overtime
 
 
 def clean_attendance_spreadsheet(df: pd.DataFrame, projects_metadata: dict):
-    project_name, start_time, is_compressed, is_overtime, working_days = get_metadata(
+    project_name, start_time, is_compressed, is_overtime = get_metadata(
         projects_metadata
     )
 

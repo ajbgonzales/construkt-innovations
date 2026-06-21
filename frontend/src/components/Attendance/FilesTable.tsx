@@ -33,7 +33,7 @@ const COLUMNS: Column[] = [
   {
     id: "projectAndFile",
     label: "Project & File",
-    width: "45%",
+    width: "25%",
     textAlign: "left",
   },
   {
@@ -54,12 +54,12 @@ const COLUMNS: Column[] = [
     width: "10%",
     textAlign: "center",
   },
-  {
-    id: "workingDays",
-    label: "Working Days",
-    width: "25%",
-    textAlign: "left",
-  },
+  // {
+  //   id: "workingDays",
+  //   label: "Working Days",
+  //   width: "25%",
+  //   textAlign: "left",
+  // },
   {
     id: "remove",
     label: "Remove",
