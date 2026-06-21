@@ -73,9 +73,16 @@ const FilesTable = () => {
 
   const { mutate } = useMutation({
     mutationFn: (formData: FormData) =>
-      api.post("/process_attendance_records", formData).then((res) => res.data),
-    onSuccess: (data) => {
-      console.log("success:", data);
+      api.post("/process_attendance_records", formData, {
+        responseType: "blob",
+      }),
+    onSuccess: (res) => {
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "compiled.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
     },
     onError: (error) => {
       console.error("failed:", error);

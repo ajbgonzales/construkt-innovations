@@ -3,6 +3,8 @@ import pandas as pd
 
 from datetime import datetime, timedelta
 
+from io import BytesIO
+
 from models.attendance import EmployeeAttendanceRecord
 
 from services.dates import get_date_range
@@ -131,16 +133,18 @@ def create_cleaned_spreadsheet(
     )
 
 
-def compile_spreadsheets(file_paths: list[str], output_path: str):
-    output = openpyxl.Workbook()
-    output.remove(output.active)
+def compile_spreadsheets(file_paths: list[str], buffer: BytesIO):
+    workbook = openpyxl.Workbook()
+    workbook.remove(workbook.active)
 
     for path in file_paths:
         wb = openpyxl.load_workbook(path)
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
-            new_ws = output.create_sheet(title=sheet_name)
+            new_ws = workbook.create_sheet(title=sheet_name)
             for row in ws.iter_rows(values_only=True):
                 new_ws.append(row)
 
-    output.save(output_path)
+    workbook.save(buffer)
+    buffer.seek(0)
+    return buffer

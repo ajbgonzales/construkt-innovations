@@ -1,12 +1,16 @@
+import io
 import json
 import pandas as pd
 
 from fastapi import APIRouter, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
+
 from models.attendance import FilePayload
 from services.spreadsheet_processor import (
     clean_attendance_spreadsheet,
     compile_spreadsheets,
 )
+
 from typing import List
 
 
@@ -29,8 +33,15 @@ async def process_attendance_records(
         clean_attendance_spreadsheet(df, parsed_projects_metadata[file.filename])
 
     file_paths = []
-    for value in parsed_projects_metadata.values():
-        file_paths.append(f"app/records/{value['project_name']}.xlsx")
+    file_paths.extend(
+        f"app/records/{value['project_name']}.xlsx"
+        for value in parsed_projects_metadata.values()
+    )
 
-    compile_spreadsheets(file_paths, "app/records/compiled.xlsx")
-    return {"result": "Okay"}
+    buffer = io.BytesIO()
+    compile_spreadsheets(file_paths, buffer)
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=compiled.xlsx"},
+    )
