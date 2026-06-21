@@ -1,6 +1,6 @@
 import re
 
-from datetime import datetime, time
+from datetime import datetime, timedelta
 from .exceptions import TimeLogsError
 
 
@@ -9,7 +9,9 @@ def get_time_logs(
     index: int,
     date: datetime,
     col_num: int,
+    start_time: str,
     is_compressed_time: bool,
+    is_overtime: bool,
 ):
     time_in = None
     time_out = None
@@ -28,7 +30,14 @@ def get_time_logs(
         return time_in, time_out, is_flagged, notes
 
     try:
-        if has_valid_time_logs(date, time_in_logs, time_out_logs, is_compressed_time):
+        if has_valid_time_logs(
+            date,
+            start_time,
+            time_in_logs,
+            time_out_logs,
+            is_compressed_time,
+            is_overtime,
+        ):
             time_in_logs_arr = time_in_logs.strip().split("\n")
             time_obj_arr = [
                 datetime.strptime(time_obj, "%H:%M").time()
@@ -51,35 +60,57 @@ def get_time_logs(
 
 
 def has_valid_time_logs(
-    date: datetime, time_in_logs: str, time_out_logs: str, is_compressed_time: bool
+    date: datetime,
+    start_time: str,
+    time_in_logs: str,
+    time_out_logs: str,
+    is_compressed_time: bool,
+    is_overtime: bool,
 ):
-    """
-    Validates each time log whether:
-    1. It has the correct pattern (ex. "08:00\n17:00")
-    2. Time in logs are before 12:00 (12:30 for compressed time)
-    3. Time out logs are before 17:00 (16:30 for compressed time)
-    4. # TODO: overtime?
-    """
+    # It has the correct pattern (ex. "08:00\n17:00")
     if not re.fullmatch(r"\d{2}:\d{2}\n\d{2}:\d{2}", time_in_logs):
         raise TimeLogsError(
             f"Invalid morning time logs for {date.strftime('%B %d, %Y')}."
         )
+    # Checks if there are time out logs
     if not isinstance(time_out_logs, str):
         raise TimeLogsError(f"No afternoon time logs for {date.strftime('%B %d, %Y')}.")
+    # Checks format of time out logs
     if not re.fullmatch(r"\d{2}:\d{2}\n\d{2}:\d{2}", time_out_logs):
         raise TimeLogsError(
             f"Invalid afternoon time logs for {date.strftime('%B %d, %Y')}."
         )
-    if not is_within_range(time_in_logs, time_out_logs, is_compressed_time):
+    if not is_within_range(
+        start_time, time_in_logs, time_out_logs, is_compressed_time, is_overtime
+    ):
         raise TimeLogsError(
             f"Time logs are not within the proper range for {date.strftime('%B %d, %Y')}."
         )
     return True
 
 
-def is_within_range(time_in_logs: str, time_out_logs: str, is_compressed_time: bool):
-    break_time = time(12, 0) if not is_compressed_time else time(12, 30)
-    time_out = time(17, 0) if not is_compressed_time else time(16, 30)
+def is_within_range(
+    start_time: str,
+    time_in_logs: str,
+    time_out_logs: str,
+    is_compressed_time: bool,
+    is_overtime: bool,
+):
+    start_time_obj = datetime.strptime(start_time, "%H:%M")
+    # break_time for compressed time is 4h30min after start_time
+    # break_time for non-compressed time is 4h after start_time
+    break_time = (
+        start_time_obj + timedelta(hours=4, minutes=30)
+        if is_compressed_time
+        else start_time_obj + timedelta(hours=4)
+    )
+    # time_out for compressed time is 8h30min after start_time
+    # time_out for non-compressed time is 9h after start_time
+    time_out = (
+        start_time_obj + timedelta(hours=8, minutes=30)
+        if is_compressed_time
+        else start_time_obj + timedelta(hours=9)
+    )
     time_in_logs_arr = time_in_logs.strip().split("\n")
     time_in_obj_arr = [
         datetime.strptime(time_obj, "%H:%M").time() for time_obj in time_in_logs_arr
@@ -88,9 +119,15 @@ def is_within_range(time_in_logs: str, time_out_logs: str, is_compressed_time: b
     time_out_obj_arr = [
         datetime.strptime(time_obj, "%H:%M").time() for time_obj in time_out_logs_arr
     ]
+
+    if is_overtime:
+        return (
+            time_in_obj_arr[0] < break_time.time()
+            and time_in_obj_arr[1] <= break_time.time()
+        )
     return (
-        time_in_obj_arr[0] < break_time
-        and time_in_obj_arr[1] <= break_time
-        and time_out_obj_arr[0] < time_out
-        and time_out_obj_arr[1] <= time_out
+        time_in_obj_arr[0] < break_time.time()
+        and time_in_obj_arr[1] <= break_time.time()
+        and time_out_obj_arr[0] < time_out.time()
+        and time_out_obj_arr[1] <= time_out.time()
     )

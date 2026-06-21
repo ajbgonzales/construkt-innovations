@@ -33,7 +33,7 @@ def clean_attendance_spreadsheet(df: pd.DataFrame, projects_metadata: dict):
 
     start_date, end_date = get_date_range(df.loc[1, "col_11"])
     records = get_employee_records(
-        df, project_name, start_date, end_date, is_compressed
+        df, project_name, start_date, end_date, start_time, is_compressed, is_overtime
     )
     create_cleaned_spreadsheet(records, project_name)
 
@@ -43,7 +43,9 @@ def get_employee_records(
     project: str,
     start_date: datetime,
     end_date: datetime,
+    start_time: str,
     is_compressed_time: bool,
+    is_overtime: bool,
 ):
     records: list[EmployeeAttendanceRecord] = []
     rows = list(df.itertuples(index=False))
@@ -57,7 +59,9 @@ def get_employee_records(
                     i + 2,
                     current,
                     col_num,
+                    start_time,
                     is_compressed_time,
+                    is_overtime,
                 )
                 record = EmployeeAttendanceRecord(
                     employee_id=row.col_5,
