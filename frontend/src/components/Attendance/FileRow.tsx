@@ -52,9 +52,8 @@ const FileRow: FC<FileRowProps> = ({ fileName }) => {
           }}
         >
           <TextField
-            label="Project name"
+            label="Project name (required)"
             variant="outlined"
-            required
             value={values[fileName].projectName}
             onChange={(e) =>
               updateValues(fileName, "projectName", e.target.value)
