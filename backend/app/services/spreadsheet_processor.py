@@ -1,3 +1,4 @@
+import os
 import openpyxl
 import pandas as pd
 
@@ -130,6 +131,8 @@ def create_cleaned_spreadsheet(
     # Move Total Work Hours column to last position
     total_work_hours_col = cleaned_df.pop("Total Work Hours")
     cleaned_df["Total Work Hours"] = total_work_hours_col
+
+    os.makedirs("./app/records", exist_ok=True)
 
     # Convert data frame to excel
     cleaned_df.to_excel(
