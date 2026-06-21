@@ -115,8 +115,8 @@ def create_cleaned_spreadsheet(
         # Add work hours
         if r.time_in and r.time_out:
             hours = ((r.time_out - r.time_in).total_seconds() - r.break_seconds) / 3600
-            cleaned_dict[r.employee_id][r.date.strftime("%Y-%m-%d")] = hours
-            cleaned_dict[r.employee_id]["Total Work Hours"] += hours
+            cleaned_dict[r.employee_id][r.date.strftime("%Y-%m-%d")] = round(hours, 2)
+            cleaned_dict[r.employee_id]["Total Work Hours"] += round(hours, 2)
         else:
             cleaned_dict[r.employee_id][r.date.strftime("%Y-%m-%d")] = 0
 
