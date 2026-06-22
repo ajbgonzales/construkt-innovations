@@ -97,5 +97,5 @@ def is_within_range(
     return (
         time_logs_obj_arr[0] <= break_time.time()
         and time_logs_obj_arr[1] > break_time.time()
-        and time_logs_obj_arr[1] <= time_out.time()
+        and time_logs_obj_arr[1] <= (time_out + timedelta(minutes=10)).time()
     )

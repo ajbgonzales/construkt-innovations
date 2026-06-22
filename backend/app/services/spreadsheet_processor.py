@@ -8,8 +8,10 @@ from io import BytesIO
 
 from models.attendance import EmployeeAttendanceRecord
 
+from services.dataframe import get_loc_given_substring
 from services.dates import get_date_range
 from services.time_logs import get_time_logs
+from services.utils import get_employee_attribute
 
 
 def get_metadata(projects_metadata: dict):
@@ -32,7 +34,8 @@ def clean_attendance_spreadsheet(df: pd.DataFrame, projects_metadata: dict):
         for i, col in enumerate(df.columns, start=1)
     ]
 
-    start_date, end_date = get_date_range(df.loc[1, "col_11"])
+    row, col = get_loc_given_substring(df, "Attendance date")
+    start_date, end_date = get_date_range(df.loc[row, col])
     records = get_employee_records(
         df, project_name, start_date, end_date, start_time, is_compressed, is_overtime
     )
@@ -51,7 +54,8 @@ def get_employee_records(
     records: list[EmployeeAttendanceRecord] = []
     rows = list(df.itertuples(index=False))
     for i, row in enumerate(rows[:-1]):
-        if row.col_4 == "User ID:":
+        name = get_employee_attribute(df, rows, i, "Name:")
+        if row.col_4 == "User ID:" and isinstance(name, str):
             current = start_date
             col_num = 1
             while current <= end_date:
@@ -66,8 +70,8 @@ def get_employee_records(
                 )
                 record = EmployeeAttendanceRecord(
                     employee_id=row.col_5,
-                    employee_full_name=row.col_8,
-                    position=row.col_10,
+                    employee_full_name=name,
+                    position=get_employee_attribute(df, rows, i, "Department:"),
                     project=project,
                     rate=0,
                     allowance=0,
