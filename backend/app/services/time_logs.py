@@ -1,6 +1,9 @@
 import re
 
 from datetime import datetime, timedelta
+
+from typing import Literal
+
 from .exceptions import TimeLogsError
 
 
@@ -20,7 +23,11 @@ def get_time_logs(
 
     time_logs = getattr(rows[index], f"col_{col_num}")
     # Employee is absent
-    if not isinstance(time_logs, str):
+    if (
+        not isinstance(time_logs, str)
+        or time_logs == "User ID:"
+        or re.match(r"^\d+$", time_logs)
+    ):
         return time_in, time_out, is_flagged, notes
 
     try:
@@ -31,14 +38,11 @@ def get_time_logs(
             is_compressed_time,
             is_overtime,
         ):
-            time_logs_arr = time_logs.strip().split("\n")
-            time_obj_arr = [
-                datetime.strptime(time_obj, "%H:%M").time()
-                for time_obj in time_logs_arr
-            ]
-            time_in = datetime.combine(date, time_obj_arr[0])
-            time_out = datetime.combine(date, time_obj_arr[1])
-
+            time_obj_arr = _get_time_obj_arr(time_logs)
+            time_in = _get_time_in(date, start_time, time_obj_arr)
+            time_out = _get_time_out(
+                date, start_time, time_obj_arr, is_compressed_time, is_overtime
+            )
             return time_in, time_out, is_flagged, notes
     except TimeLogsError as e:
         is_flagged = "Yes"
@@ -92,10 +96,61 @@ def is_within_range(
     if is_overtime:
         return (
             time_logs_obj_arr[0] < break_time.time()
-            and time_logs_obj_arr[1] > break_time.time()
+            and time_logs_obj_arr[1] >= break_time.time()
         )
     return (
         time_logs_obj_arr[0] <= break_time.time()
-        and time_logs_obj_arr[1] > break_time.time()
+        and time_logs_obj_arr[1] >= break_time.time()
         and time_logs_obj_arr[1] <= (time_out + timedelta(minutes=10)).time()
     )
+
+
+def is_time_within_timedelta(
+    time1: datetime.time,
+    time2: datetime.time,
+    attr: Literal["hours", "minutes", "seconds"],
+    delta: int,
+):
+    t2 = datetime.combine(datetime.min, time2)
+    t1 = datetime.combine(datetime.min, time1)
+    if attr == "hours":
+        return t2 - t1 <= timedelta(hours=delta)
+    elif attr == "minutes":
+        return t2 - t1 <= timedelta(minutes=delta)
+    else:
+        return t2 - t1 <= timedelta(seconds=delta)
+
+
+def _get_time_obj_arr(time_logs):
+    time_logs_arr = time_logs.strip().split("\n")
+    return [datetime.strptime(time_obj, "%H:%M").time() for time_obj in time_logs_arr]
+
+
+def _get_time_in(date, start_time, time_obj_arr):
+    start_time_obj = datetime.strptime(start_time, "%H:%M").time()
+
+    if time_obj_arr[0] <= start_time_obj or is_time_within_timedelta(
+        start_time_obj, time_obj_arr[0], "minutes", 10
+    ):
+        return datetime.combine(date, start_time_obj)
+    else:
+        return datetime.combine(date, time_obj_arr[0])
+
+
+def _get_time_out(date, start_time, time_obj_arr, is_compressed_time, is_overtime):
+    hours = 8 if is_compressed_time else 9
+    minutes = 30 if is_compressed_time else 0
+    end_time_obj = datetime.strptime(start_time, "%H:%M") + timedelta(
+        hours=hours, minutes=minutes
+    )
+
+    if (
+        not is_overtime
+        and time_obj_arr[1] >= end_time_obj.time()
+        and is_time_within_timedelta(
+            end_time_obj.time(), time_obj_arr[1], "minutes", 10
+        )
+    ):
+        return datetime.combine(date, end_time_obj.time())
+    else:
+        return datetime.combine(date, time_obj_arr[1])

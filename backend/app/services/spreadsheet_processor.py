@@ -93,7 +93,8 @@ def get_employee_records(
 
 
 def create_cleaned_spreadsheet(
-    records: list[EmployeeAttendanceRecord], project_name: str
+    records: list[EmployeeAttendanceRecord],
+    project_name: str,
 ):
     cleaned_dict = {}
     for r in records:
