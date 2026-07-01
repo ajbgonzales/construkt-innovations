@@ -21,7 +21,11 @@ def get_time_logs(
     is_flagged = "No"
     notes = None
 
-    time_logs = getattr(rows[index], f"col_{col_num}")
+    try:
+        time_logs = getattr(rows[index], f"col_{col_num}")
+    except IndexError:
+        return time_in, time_out, is_flagged, notes
+
     # Employee is absent
     if (
         not isinstance(time_logs, str)
