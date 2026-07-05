@@ -12,7 +12,7 @@ from openpyxl.utils import get_column_letter
 
 from services.dataframe import get_loc_given_substring
 from services.dates import get_date_range
-from services.time_logs import get_time_logs
+from services.time_logs import get_hours
 from services.utils import get_employee_attribute
 
 NON_DATE_COLUMNS = {
@@ -77,14 +77,14 @@ def get_employee_records(
             current = start_date
             col_num = 1
             while current <= end_date:
-                time_in, time_out, is_flagged, notes = get_time_logs(
-                    rows,
-                    i + 2,
-                    current,
-                    col_num,
-                    start_time,
-                    is_compressed_time,
-                    is_overtime,
+                work_hours, overtime_hours, is_flagged, notes = get_hours(
+                    rows=rows,
+                    index=i + 2,
+                    date=current,
+                    col_num=col_num,
+                    start_time=start_time,
+                    is_compressed_time=is_compressed_time,
+                    is_overtime=is_overtime,
                 )
                 record = EmployeeAttendanceRecord(
                     employee_id=row.col_5,
@@ -97,10 +97,10 @@ def get_employee_records(
                     hdmf=0,
                     sss=0,
                     date=current,
-                    time_in=time_in,
-                    time_out=time_out,
-                    break_seconds=1800 if is_compressed_time else 3600,
+                    work_hours=work_hours,
+                    overtime_hours=overtime_hours,
                     is_compressed_time=is_compressed_time,
+                    is_overtime=is_overtime,
                     is_flagged=is_flagged,
                     notes=notes,
                 )
@@ -155,22 +155,37 @@ def create_cleaned_spreadsheet(
     ws.cell(row=1, column=gross_col, value="Gross Amount")
     ws.cell(row=1, column=net_col, value="Net Amount")
 
-    rate_letter, allowance_letter, phic_letter, hdmf_letter, twh_letter = (
-        _get_column_letters(col)
-    )
+    (
+        rate_letter,
+        allowance_letter,
+        phic_letter,
+        hdmf_letter,
+        sss_letter,
+        twh_letter,
+        ot_letter,
+    ) = _get_column_letters(col)
     gross_letter = get_column_letter(gross_col)
 
+    date_cols = [idx for name, idx in col.items() if name not in NON_DATE_COLUMNS]
+    first_date_letter = get_column_letter(min(date_cols))
+    last_date_letter = get_column_letter(max(date_cols))
+
     for row_idx in range(2, ws.max_row + 1):
+        twh_formula = f"=SUM({first_date_letter}{row_idx}:{last_date_letter}{row_idx})"
+        ws.cell(row=row_idx, column=col["Total Work Hours"], value=twh_formula)
         gross_formula = (
             f"=ROUND((({rate_letter}{row_idx}+{allowance_letter}{row_idx})/8)"
-            f"*{twh_letter}{row_idx}"
+            f"*({twh_letter}{row_idx}-{ot_letter}{row_idx})"
+            f"+({ot_letter}{row_idx}*(1.25*({rate_letter}{row_idx}/8)))"
             f"+{phic_letter}{row_idx}"
-            f"+{hdmf_letter}{row_idx},2)"
+            f"+{hdmf_letter}{row_idx}"
+            f"+{sss_letter}{row_idx},2)"
         )
         net_formula = (
             f"=ROUND({gross_letter}{row_idx}"
             f"-{phic_letter}{row_idx}"
-            f"-{hdmf_letter}{row_idx},2)"
+            f"-{hdmf_letter}{row_idx}"
+            f"-{sss_letter}{row_idx},2)"
         )
         gross_cell = ws.cell(row=row_idx, column=gross_col, value=gross_formula)
         gross_cell.number_format = "#,##0.00"
@@ -226,13 +241,9 @@ def _create_cleaned_dict(records: list[EmployeeAttendanceRecord]):
                 cleaned_dict[r.employee_id]["Notes"] += f"\n{r.notes}"
             else:
                 cleaned_dict[r.employee_id]["Notes"] = r.notes
-        # Add work hours
-        if r.time_in and r.time_out:
-            hours = ((r.time_out - r.time_in).total_seconds() - r.break_seconds) / 3600
-            cleaned_dict[r.employee_id][r.date.strftime("%Y-%m-%d")] = round(hours, 2)
-            cleaned_dict[r.employee_id]["Total Work Hours"] += round(hours, 2)
-        else:
-            cleaned_dict[r.employee_id][r.date.strftime("%Y-%m-%d")] = 0
+        # Add work hours and overtime hours
+        cleaned_dict[r.employee_id][r.date.strftime("%Y-%m-%d")] = r.work_hours
+        cleaned_dict[r.employee_id]["Overtime"] += r.overtime_hours
 
     return cleaned_dict
 

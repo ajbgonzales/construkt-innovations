@@ -7,7 +7,7 @@ from typing import Literal
 from .exceptions import TimeLogsError
 
 
-def get_time_logs(
+def get_hours(
     rows,
     index: int,
     date: datetime,
@@ -16,15 +16,15 @@ def get_time_logs(
     is_compressed_time: bool,
     is_overtime: bool,
 ):
-    time_in = None
-    time_out = None
+    work_hours = 0
+    overtime_hours = 0
     is_flagged = "No"
     notes = None
 
     try:
         time_logs = getattr(rows[index], f"col_{col_num}")
     except IndexError:
-        return time_in, time_out, is_flagged, notes
+        return work_hours, overtime_hours, is_flagged, notes
 
     # Employee is absent
     if (
@@ -158,3 +158,18 @@ def _get_time_out(date, start_time, time_obj_arr, is_compressed_time, is_overtim
         return datetime.combine(date, end_time_obj.time())
     else:
         return datetime.combine(date, time_obj_arr[1])
+
+
+def _get_work_hours(date, time_in, time_out, is_compressed_time, is_overtime):
+    if date.weekday() == 5:
+        total_work_hours = 5.5
+        break_seconds = 2700
+    else:
+        total_work_hours = 8.5 if is_compressed_time else 8
+        break_seconds = 1800 if is_compressed_time else 3600
+
+    work_hours = ((time_out - time_in).total_seconds() - break_seconds) / 3600
+
+    if is_overtime and work_hours > total_work_hours:
+        return total_work_hours, round((work_hours - total_work_hours), 2)
+    return round(work_hours, 2), 0

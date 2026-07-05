@@ -1,6 +1,6 @@
 import uuid
 
-from datetime import date, datetime
+from datetime import date
 from pydantic import BaseModel, ConfigDict, Field, UUID1
 from pydantic.alias_generators import to_camel
 from typing import Literal
@@ -18,28 +18,12 @@ class EmployeeAttendanceRecord(BaseModel):
     hdmf: float
     sss: float
     date: date
-    time_in: datetime | None
-    time_out: datetime | None
-    break_seconds: int
+    work_hours: float
+    overtime_hours: float
     is_compressed_time: bool
+    is_overtime: bool
     is_flagged: Literal["Yes", "No"]
     notes: str | None = None
-
-    def work_hours(self):
-        return (
-            (self.time_out - self.time_in).total_seconds() - self.break_seconds
-        ) / 3600
-
-    def overtime_hours(self):
-        if self.is_compressed_time:
-            total_work_hours = 8.5
-        else:
-            total_work_hours = 8
-
-        overtime = (
-            (self.time_out - self.time_in).total_seconds() - self.break_seconds / 3600
-        ) - total_work_hours
-        return overtime if overtime > 0 else 0
 
 
 class FilePayload(BaseModel):
