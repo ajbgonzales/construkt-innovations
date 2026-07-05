@@ -15,6 +15,22 @@ from services.dates import get_date_range
 from services.time_logs import get_time_logs
 from services.utils import get_employee_attribute
 
+NON_DATE_COLUMNS = {
+    "Employee ID",
+    "Employee Full Name",
+    "Position",
+    "Project",
+    "Is Flagged",
+    "Notes",
+    "Total Work Hours",
+    "Overtime",
+    "Rate",
+    "Allowance",
+    "PHIC",
+    "HDMF",
+    "SSS",
+}
+
 
 def get_metadata(projects_metadata: dict):
     project_name = projects_metadata["project_name"]
@@ -79,6 +95,7 @@ def get_employee_records(
                     allowance=0,
                     phic=0,
                     hdmf=0,
+                    sss=0,
                     date=current,
                     time_in=time_in,
                     time_out=time_out,
@@ -104,9 +121,20 @@ def create_cleaned_spreadsheet(
     cleaned_df = pd.DataFrame.from_dict(cleaned_dict, orient="index")
 
     # Move Total Work Hours, Rate, Allowance, PHIC, HDMF to the end (in that order before formula columns)
-    for col_name in ["Total Work Hours", "Rate", "Allowance", "PHIC", "HDMF"]:
+    for col_name in [
+        "Total Work Hours",
+        "Overtime",
+        "Rate",
+        "Allowance",
+        "PHIC",
+        "HDMF",
+        "SSS",
+    ]:
         col_data = cleaned_df.pop(col_name)
         cleaned_df[col_name] = col_data
+
+    # Total Work Hours is populated as an Excel SUM formula below, once the
+    # sheet exists and date columns can be located by header.
 
     os.makedirs("./app/records", exist_ok=True)
 
@@ -182,10 +210,12 @@ def _create_cleaned_dict(records: list[EmployeeAttendanceRecord]):
                 "Is Flagged": "No",
                 "Notes": None,
                 "Total Work Hours": 0,
+                "Overtime": 0,
                 "Rate": r.rate,
                 "Allowance": r.allowance,
                 "PHIC": r.phic,
                 "HDMF": r.hdmf,
+                "SSS": r.sss,
             }
         # Flag employee
         if cleaned_dict[r.employee_id]["Is Flagged"] == "No" and r.is_flagged == "Yes":
@@ -212,6 +242,16 @@ def _get_column_letters(columns):
     allowance_letter = get_column_letter(columns["Allowance"])
     phic_letter = get_column_letter(columns["PHIC"])
     hdmf_letter = get_column_letter(columns["HDMF"])
+    sss_letter = get_column_letter(columns["SSS"])
     twh_letter = get_column_letter(columns["Total Work Hours"])
+    ot_letter = get_column_letter(columns["Overtime"])
 
-    return rate_letter, allowance_letter, phic_letter, hdmf_letter, twh_letter
+    return (
+        rate_letter,
+        allowance_letter,
+        phic_letter,
+        hdmf_letter,
+        sss_letter,
+        twh_letter,
+        ot_letter,
+    )

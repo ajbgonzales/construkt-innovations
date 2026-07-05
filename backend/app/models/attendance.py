@@ -16,6 +16,7 @@ class EmployeeAttendanceRecord(BaseModel):
     allowance: float
     phic: float
     hdmf: float
+    sss: float
     date: date
     time_in: datetime | None
     time_out: datetime | None
