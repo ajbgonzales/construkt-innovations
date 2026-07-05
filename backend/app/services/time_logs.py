@@ -32,46 +32,60 @@ def get_hours(
         or time_logs == "User ID:"
         or re.match(r"^\d+$", time_logs)
     ):
-        return time_in, time_out, is_flagged, notes
+        return work_hours, overtime_hours, is_flagged, notes
 
     try:
-        if has_valid_time_logs(
-            date,
-            start_time,
-            time_logs,
-            is_compressed_time,
-            is_overtime,
+        try:
+            next_row = getattr(rows[index + 1], f"col_{col_num}")
+        except IndexError:
+            next_row = None
+
+        if _has_valid_time_logs(
+            date=date,
+            start_time=start_time,
+            time_logs=time_logs,
+            next_row=next_row,
+            is_compressed_time=is_compressed_time,
+            is_overtime=is_overtime,
         ):
             time_obj_arr = _get_time_obj_arr(time_logs)
             time_in = _get_time_in(date, start_time, time_obj_arr)
             time_out = _get_time_out(
                 date, start_time, time_obj_arr, is_compressed_time, is_overtime
             )
-            return time_in, time_out, is_flagged, notes
+            work_hours, overtime_hours = _get_work_hours(
+                date, time_in, time_out, is_compressed_time, is_overtime
+            )
+
+            return work_hours, overtime_hours, is_flagged, notes
     except TimeLogsError as e:
         is_flagged = "Yes"
         notes = e.message
-        return time_in, time_out, is_flagged, notes
+        return work_hours, overtime_hours, is_flagged, notes
 
 
-def has_valid_time_logs(
+def _has_valid_time_logs(
     date: datetime,
     start_time: str,
     time_logs: str,
+    next_row,
     is_compressed_time: bool,
     is_overtime: bool,
 ):
     # It has the correct pattern (ex. "08:00\n17:00")
-    if not re.fullmatch(r"\d{2}:\d{2}\n\d{2}:\d{2}", time_logs):
+    # and no time logs in the next row
+    if not re.fullmatch(r"\d{2}:\d{2}\n\d{2}:\d{2}", time_logs) or (
+        isinstance(next_row, str) and re.search(r"\d{2}:\d{2}", next_row)
+    ):
         raise TimeLogsError(f"Invalid time logs for {date.strftime('%B %d, %Y')}.")
-    if not is_within_range(start_time, time_logs, is_compressed_time, is_overtime):
+    if not _is_within_range(start_time, time_logs, is_compressed_time, is_overtime):
         raise TimeLogsError(
             f"Time logs are not within the proper range for {date.strftime('%B %d, %Y')}."
         )
     return True
 
 
-def is_within_range(
+def _is_within_range(
     start_time: str,
     time_logs: str,
     is_compressed_time: bool,
@@ -109,7 +123,7 @@ def is_within_range(
     )
 
 
-def is_time_within_timedelta(
+def _is_time_within_timedelta(
     time1: datetime.time,
     time2: datetime.time,
     attr: Literal["hours", "minutes", "seconds"],
@@ -133,7 +147,7 @@ def _get_time_obj_arr(time_logs):
 def _get_time_in(date, start_time, time_obj_arr):
     start_time_obj = datetime.strptime(start_time, "%H:%M").time()
 
-    if time_obj_arr[0] <= start_time_obj or is_time_within_timedelta(
+    if time_obj_arr[0] <= start_time_obj or _is_time_within_timedelta(
         start_time_obj, time_obj_arr[0], "minutes", 10
     ):
         return datetime.combine(date, start_time_obj)
@@ -151,7 +165,7 @@ def _get_time_out(date, start_time, time_obj_arr, is_compressed_time, is_overtim
     if (
         not is_overtime
         and time_obj_arr[1] >= end_time_obj.time()
-        and is_time_within_timedelta(
+        and _is_time_within_timedelta(
             end_time_obj.time(), time_obj_arr[1], "minutes", 10
         )
     ):
