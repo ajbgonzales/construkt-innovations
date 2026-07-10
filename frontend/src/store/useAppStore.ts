@@ -1,10 +1,8 @@
 import { create } from "zustand";
 
 interface AppStore {
-  activeTab: "dashboard" | "employees" | "attendance" | "reports";
-  setActiveTab: (
-    tab: "dashboard" | "employees" | "attendance" | "reports",
-  ) => void;
+  activeTab: "attendance" | "payslipGenerator";
+  setActiveTab: (tab: "attendance" | "payslipGenerator") => void;
 }
 
 const useAppStore = create<AppStore>((set) => ({

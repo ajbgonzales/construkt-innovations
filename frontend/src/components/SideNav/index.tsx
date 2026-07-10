@@ -1,9 +1,6 @@
 import AppLogo from "@/assets/app-logo.svg?react";
 import AppName from "@/assets/app-name.svg?react";
 import useAppStore from "@/store/useAppStore";
-import AssessmentIcon from "@mui/icons-material/Assessment";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import PunchClockIcon from "@mui/icons-material/PunchClock";
 import { Box, Drawer, Tabs } from "@mui/material";
 import { StyledTab } from "./styles";
@@ -16,7 +13,7 @@ const SideNav = () => {
 
   const handleChange = (
     _event: React.SyntheticEvent,
-    newValue: "dashboard" | "employees" | "attendance" | "reports",
+    newValue: "attendance" | "payslipGenerator",
   ) => {
     setActiveTab(newValue);
   };
@@ -51,28 +48,10 @@ const SideNav = () => {
       >
         <Tabs orientation="vertical" value={activeTab} onChange={handleChange}>
           <StyledTab
-            icon={<DashboardIcon />}
-            iconPosition="start"
-            label="Dashboard"
-            value="dashboard"
-          />
-          <StyledTab
-            icon={<PeopleAltIcon />}
-            iconPosition="start"
-            label="Employees"
-            value="employees"
-          />
-          <StyledTab
             icon={<PunchClockIcon />}
             iconPosition="start"
             label="Attendance"
             value="attendance"
-          />
-          <StyledTab
-            icon={<AssessmentIcon />}
-            iconPosition="start"
-            label="Reports"
-            value="reports"
           />
         </Tabs>
       </Box>
