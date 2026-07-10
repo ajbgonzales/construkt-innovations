@@ -3,76 +3,18 @@ import useAttendanceStore, {
   type ProjectMetadata,
 } from "@/store/useAttendanceStore";
 import { useMutation } from "@tanstack/react-query";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableFooter,
-  TableHead,
-  TableRow,
-  Typography,
-} from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import FileRow from "./FileRow";
 import { StyledButton } from "./styles";
-
-interface Column {
-  id:
-    | "projectAndFile"
-    | "startTime"
-    | "compressed"
-    | "overtime"
-    | "workingDays"
-    | "remove";
-  label: string;
-  width: string;
-  textAlign: string;
-}
-
-const COLUMNS: Column[] = [
-  {
-    id: "projectAndFile",
-    label: "Project & File",
-    width: "25%",
-    textAlign: "left",
-  },
-  {
-    id: "startTime",
-    label: "Start Time",
-    width: "10%",
-    textAlign: "left",
-  },
-  {
-    id: "compressed",
-    label: "Compressed Time",
-    width: "10%",
-    textAlign: "center",
-  },
-  {
-    id: "overtime",
-    label: "Overtime",
-    width: "10%",
-    textAlign: "center",
-  },
-  // {
-  //   id: "workingDays",
-  //   label: "Working Days",
-  //   width: "25%",
-  //   textAlign: "left",
-  // },
-  {
-    id: "remove",
-    label: "Remove",
-    width: "10%",
-    textAlign: "center",
-  },
-];
 
 const FilesTable = () => {
   const { files, values } = useAttendanceStore();
 
   const isProcessFilesDisabled = () => {
-    return Object.values(values).some((v) => v.projectName.trim() === "");
+    return Object.values(values).some((v) => {
+      const isEndAfterStart = v.endTime > v.startTime;
+      return v.projectName.trim() === "" || !isEndAfterStart;
+    });
   };
 
   const { mutate, isPending } = useMutation({
@@ -112,49 +54,35 @@ const FilesTable = () => {
   };
 
   return (
-    <TableContainer>
-      <Table sx={{ border: "1px solid #C4C6CD" }}>
-        <TableHead>
-          <TableRow sx={{ background: "#F2F4F6" }}>
-            <TableCell colSpan={6}>
-              <Typography sx={{ textTransform: "uppercase" }}>
-                Active Project Records
-              </Typography>
-            </TableCell>
-          </TableRow>
-          <TableRow>
-            {COLUMNS.map((c) => (
-              <TableCell
-                key={c.id}
-                sx={{ width: c.width, textAlign: c.textAlign }}
-              >
-                <Typography sx={{ textTransform: "uppercase" }}>
-                  {c.label}
-                </Typography>
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {files.map((f) => {
-            return <FileRow key={f.name} fileName={f.name} />;
-          })}
-        </TableBody>
-        <TableFooter>
-          <TableRow sx={{ background: "#F2F4F6" }}>
-            <TableCell colSpan={6} align="right">
-              <StyledButton
-                disabled={isProcessFilesDisabled() || isPending}
-                onClick={handleProcessFiles}
-                sx={{ border: "1px solid #F5A623", background: "#F5A623" }}
-              >
-                {isPending ? "Processing..." : "Process Files"}
-              </StyledButton>
-            </TableCell>
-          </TableRow>
-        </TableFooter>
-      </Table>
-    </TableContainer>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        border: "1px solid #C4C6CD",
+        background: "#F2F4F6",
+      }}
+    >
+      <Typography
+        sx={{
+          padding: "1rem",
+          alignSelf: "start",
+          textTransform: "uppercase",
+        }}
+      >
+        Active Project Records
+      </Typography>
+      <Box>
+        {files.map((f) => {
+          return <FileRow key={f.name} fileName={f.name} />;
+        })}
+      </Box>
+      <StyledButton
+        disabled={isProcessFilesDisabled() || isPending}
+        onClick={handleProcessFiles}
+      >
+        {isPending ? "Processing..." : "Process Files"}
+      </StyledButton>
+    </Box>
   );
 };
 

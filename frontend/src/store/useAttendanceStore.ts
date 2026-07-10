@@ -3,9 +3,11 @@ import { create } from "zustand";
 export interface ProjectMetadata {
   projectName: string;
   startTime: string;
+  endTime: string;
+  includeSaturday: boolean;
+  saturdayEndTime: string;
   isCompressed: boolean;
   isOvertime: boolean;
-  workingDays: number;
 }
 
 interface AttendanceStore {
@@ -35,9 +37,11 @@ const useAttendanceStore = create<AttendanceStore>((set) => ({
         initialValues[`${file.name}`] = {
           projectName: "",
           startTime: "08:00",
+          endTime: "17:00",
+          includeSaturday: true,
+          saturdayEndTime: "14:00",
           isCompressed: false,
           isOvertime: false,
-          workingDays: 5,
         };
       });
 
