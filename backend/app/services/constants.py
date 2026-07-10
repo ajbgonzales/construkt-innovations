@@ -1,0 +1,15 @@
+NON_DATE_COLUMNS = {
+    "Employee ID",
+    "Employee Full Name",
+    "Position",
+    "Project",
+    "Is Flagged",
+    "Notes",
+    "Total Work Hours",
+    "Overtime",
+    "Rate",
+    "Allowance",
+    "PHIC",
+    "HDMF",
+    "SSS",
+}
