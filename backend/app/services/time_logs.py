@@ -13,6 +13,8 @@ def get_hours(
     date: datetime,
     col_num: int,
     start_time: str,
+    end_time: str,
+    saturday_end_time: str,
     is_compressed_time: bool,
     is_overtime: bool,
 ):
@@ -50,11 +52,15 @@ def get_hours(
         ):
             time_obj_arr = _get_time_obj_arr(time_logs)
             time_in = _get_time_in(date, start_time, time_obj_arr)
-            time_out = _get_time_out(
-                date, start_time, time_obj_arr, is_compressed_time, is_overtime
-            )
+            time_out = _get_time_out(date, end_time, time_obj_arr, is_overtime)
             work_hours, overtime_hours = _get_work_hours(
-                date, time_in, time_out, is_compressed_time, is_overtime
+                date,
+                time_in,
+                time_out,
+                end_time,
+                saturday_end_time,
+                is_compressed_time,
+                is_overtime,
             )
 
             return work_hours, overtime_hours, is_flagged, notes
@@ -155,12 +161,8 @@ def _get_time_in(date, start_time, time_obj_arr):
         return datetime.combine(date, time_obj_arr[0])
 
 
-def _get_time_out(date, start_time, time_obj_arr, is_compressed_time, is_overtime):
-    hours = 8 if is_compressed_time else 9
-    minutes = 30 if is_compressed_time else 0
-    end_time_obj = datetime.strptime(start_time, "%H:%M") + timedelta(
-        hours=hours, minutes=minutes
-    )
+def _get_time_out(date, end_time, time_obj_arr, is_overtime):
+    end_time_obj = datetime.strptime(end_time, "%H:%M")
 
     if (
         not is_overtime
@@ -174,16 +176,33 @@ def _get_time_out(date, start_time, time_obj_arr, is_compressed_time, is_overtim
         return datetime.combine(date, time_obj_arr[1])
 
 
-def _get_work_hours(date, time_in, time_out, is_compressed_time, is_overtime):
+# TODO: get accurate computation for overtime considering overtime requests
+# employees can time out before consuming all of overtime hours.
+# This function temporarily returns 0 for overtime hours
+def _get_work_hours(
+    date,
+    time_in,
+    time_out,
+    end_time,
+    saturday_end_time,
+    is_compressed_time,
+    is_overtime,
+):
     if date.weekday() == 5:
         total_work_hours = 5.5
-        break_seconds = 2700
+        break_seconds = 1800
+        end_time_obj = datetime.combine(
+            date, datetime.strptime(saturday_end_time, "%H:%M").time()
+        )
     else:
         total_work_hours = 8.5 if is_compressed_time else 8
         break_seconds = 1800 if is_compressed_time else 3600
+        end_time_obj = datetime.combine(
+            date, datetime.strptime(end_time, "%H:%M").time()
+        )
 
     work_hours = ((time_out - time_in).total_seconds() - break_seconds) / 3600
-
-    if is_overtime and work_hours > total_work_hours:
-        return total_work_hours, round((work_hours - total_work_hours), 2)
+    if is_overtime and time_out.time() > (end_time_obj + timedelta(minutes=10)).time():
+        # overtime_hours = (time_out - end_time_obj).total_seconds() / 3600
+        return total_work_hours, 0
     return round(work_hours, 2), 0

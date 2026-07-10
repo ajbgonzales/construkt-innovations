@@ -10,8 +10,15 @@ from models.attendance import EmployeeAttendanceRecord
 from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter
 
+from services.constants import NON_DATE_COLUMNS
 from services.dataframe import get_loc_given_substring
 from services.dates import get_date_range
+from services.summary_formulas import (
+    format_number_cells,
+    get_manpower,
+    get_gross_amount,
+    get_total_disbursement,
+)
 from services.time_logs import get_hours
 from services.utils import (
     get_employee_attribute,
@@ -23,17 +30,29 @@ from services.utils import (
 def _get_metadata(projects_metadata: dict):
     project_name = projects_metadata["project_name"]
     start_time = projects_metadata["start_time"]
+    end_time = projects_metadata["end_time"]
+    saturday_end_time = projects_metadata["saturday_end_time"]
     is_compressed = projects_metadata["is_compressed"]
     is_overtime = projects_metadata["is_overtime"]
-    # working_days = projects_metadata["working_days"]
-
-    return project_name, start_time, is_compressed, is_overtime
+    return (
+        project_name,
+        start_time,
+        end_time,
+        saturday_end_time,
+        is_compressed,
+        is_overtime,
+    )
 
 
 def clean_attendance_spreadsheet(df: pd.DataFrame, projects_metadata: dict):
-    project_name, start_time, is_compressed, is_overtime = get_metadata(
-        projects_metadata
-    )
+    (
+        project_name,
+        start_time,
+        end_time,
+        saturday_end_time,
+        is_compressed,
+        is_overtime,
+    ) = _get_metadata(projects_metadata)
 
     df.columns = [
         f"col_{i}" if col.startswith("Unnamed") else col
@@ -42,18 +61,28 @@ def clean_attendance_spreadsheet(df: pd.DataFrame, projects_metadata: dict):
 
     row, col = get_loc_given_substring(df, "Attendance date")
     start_date, end_date = get_date_range(df.loc[row, col])
-    records = get_employee_records(
-        df, project_name, start_date, end_date, start_time, is_compressed, is_overtime
+    records = _get_employee_records(
+        df,
+        project_name,
+        start_date,
+        end_date,
+        start_time,
+        end_time,
+        saturday_end_time,
+        is_compressed,
+        is_overtime,
     )
-    create_cleaned_spreadsheet(records, project_name)
+    _create_cleaned_spreadsheet(records, project_name)
 
 
-def get_employee_records(
+def _get_employee_records(
     df: pd.DataFrame,
     project: str,
     start_date: datetime,
     end_date: datetime,
     start_time: str,
+    end_time: str,
+    saturday_end_time: str,
     is_compressed_time: bool,
     is_overtime: bool,
 ):
@@ -71,6 +100,8 @@ def get_employee_records(
                     date=current,
                     col_num=col_num,
                     start_time=start_time,
+                    end_time=end_time,
+                    saturday_end_time=saturday_end_time,
                     is_compressed_time=is_compressed_time,
                     is_overtime=is_overtime,
                 )
@@ -99,7 +130,7 @@ def get_employee_records(
     return records
 
 
-def create_cleaned_spreadsheet(
+def _create_cleaned_spreadsheet(
     records: list[EmployeeAttendanceRecord],
     project_name: str,
 ):
@@ -186,6 +217,8 @@ def create_cleaned_spreadsheet(
 def compile_spreadsheets(file_paths: list[str], buffer: BytesIO):
     workbook = Workbook()
     workbook.remove(workbook.active)
+    summary_dict = {}
+    work_week_dates = None
 
     for path in file_paths:
         wb = load_workbook(path)
@@ -195,6 +228,12 @@ def compile_spreadsheets(file_paths: list[str], buffer: BytesIO):
             for row in ws.iter_rows(values_only=True):
                 new_ws.append(row)
 
+        if not work_week_dates:
+            work_week_dates = get_work_week_dates(new_ws)
+
+        summary_dict = _update_summary_dict(summary_dict, new_ws)
+
+    _create_summary_sheet(summary_dict, workbook)
     workbook.save(buffer)
     buffer.seek(0)
     return generate_filename(work_week_dates[0], work_week_dates[1])
@@ -254,3 +293,32 @@ def _get_column_letters(columns):
         twh_letter,
         ot_letter,
     )
+
+
+def _update_summary_dict(summary_dict, new_ws):
+    updated_summary_dict = {
+        **summary_dict,
+        new_ws.title: {
+            "Project": new_ws.title,
+            "Manpower": get_manpower(new_ws),
+            "Gross Amount": get_gross_amount(new_ws),
+        },
+    }
+
+    return updated_summary_dict
+
+
+def _create_summary_sheet(summary_dict, wb):
+    new_ws = wb.create_sheet(title="Summary", index=0)
+
+    # Write header row from the first record's keys
+    first_record = next(iter(summary_dict.values()))
+    headers = list(first_record.keys())
+    new_ws.append(headers)
+
+    # Write each record as a row, in header order
+    for record in summary_dict.values():
+        new_ws.append([record.get(h) for h in headers])
+
+    get_total_disbursement(new_ws)
+    format_number_cells(new_ws)

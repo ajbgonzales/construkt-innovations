@@ -31,6 +31,7 @@ class FilePayload(BaseModel):
 
     project_name: str
     start_time: str
+    end_time: str
+    saturday_end_time: str
     is_compressed: bool
     is_overtime: bool
-    working_days: int
