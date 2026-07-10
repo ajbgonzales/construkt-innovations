@@ -39,9 +39,9 @@ async def process_attendance_records(
     )
 
     buffer = io.BytesIO()
-    compile_spreadsheets(file_paths, buffer)
+    filename = compile_spreadsheets(file_paths, buffer)
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=compiled.xlsx"},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

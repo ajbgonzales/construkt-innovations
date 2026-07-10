@@ -84,7 +84,11 @@ const FilesTable = () => {
       const url = URL.createObjectURL(res.data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "compiled.xlsx";
+
+      const contentDisposition = res.headers["content-disposition"];
+      const match = contentDisposition?.match(/filename="?([^"]+)"?/);
+      a.download = match?.[1] ?? "Daily Payroll.xlsx";
+
       a.click();
       URL.revokeObjectURL(url);
     },

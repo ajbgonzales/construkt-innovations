@@ -13,26 +13,14 @@ from openpyxl.utils import get_column_letter
 from services.dataframe import get_loc_given_substring
 from services.dates import get_date_range
 from services.time_logs import get_hours
-from services.utils import get_employee_attribute
-
-NON_DATE_COLUMNS = {
-    "Employee ID",
-    "Employee Full Name",
-    "Position",
-    "Project",
-    "Is Flagged",
-    "Notes",
-    "Total Work Hours",
-    "Overtime",
-    "Rate",
-    "Allowance",
-    "PHIC",
-    "HDMF",
-    "SSS",
-}
+from services.utils import (
+    get_employee_attribute,
+    get_work_week_dates,
+    generate_filename,
+)
 
 
-def get_metadata(projects_metadata: dict):
+def _get_metadata(projects_metadata: dict):
     project_name = projects_metadata["project_name"]
     start_time = projects_metadata["start_time"]
     is_compressed = projects_metadata["is_compressed"]
@@ -209,7 +197,7 @@ def compile_spreadsheets(file_paths: list[str], buffer: BytesIO):
 
     workbook.save(buffer)
     buffer.seek(0)
-    return buffer
+    return generate_filename(work_week_dates[0], work_week_dates[1])
 
 
 def _create_cleaned_dict(records: list[EmployeeAttendanceRecord]):
