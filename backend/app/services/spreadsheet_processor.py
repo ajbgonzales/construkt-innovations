@@ -13,6 +13,7 @@ from openpyxl.utils import get_column_letter
 from services.constants import NON_DATE_COLUMNS
 from services.dataframe import get_loc_given_substring
 from services.dates import get_date_range
+from services.queries import get_employee_profile
 from services.summary_formulas import (
     format_number_cells,
     get_manpower,
@@ -25,6 +26,8 @@ from services.utils import (
     get_work_week_dates,
     generate_filename,
 )
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _get_metadata(projects_metadata: dict):
@@ -44,7 +47,9 @@ def _get_metadata(projects_metadata: dict):
     )
 
 
-def clean_attendance_spreadsheet(df: pd.DataFrame, projects_metadata: dict):
+async def clean_attendance_spreadsheet(
+    df: pd.DataFrame, projects_metadata: dict, db: AsyncSession
+):
     (
         project_name,
         start_time,
@@ -61,7 +66,7 @@ def clean_attendance_spreadsheet(df: pd.DataFrame, projects_metadata: dict):
 
     row, col = get_loc_given_substring(df, "Attendance date")
     start_date, end_date = get_date_range(df.loc[row, col])
-    records = _get_employee_records(
+    records = await _get_employee_records(
         df,
         project_name,
         start_date,
@@ -71,11 +76,12 @@ def clean_attendance_spreadsheet(df: pd.DataFrame, projects_metadata: dict):
         saturday_end_time,
         is_compressed,
         is_overtime,
+        db,
     )
     _create_cleaned_spreadsheet(records, project_name)
 
 
-def _get_employee_records(
+async def _get_employee_records(
     df: pd.DataFrame,
     project: str,
     start_date: datetime,
@@ -85,6 +91,7 @@ def _get_employee_records(
     saturday_end_time: str,
     is_compressed_time: bool,
     is_overtime: bool,
+    db: AsyncSession,
 ):
     records: list[EmployeeAttendanceRecord] = []
     rows = list(df.itertuples(index=False))
@@ -105,16 +112,18 @@ def _get_employee_records(
                     is_compressed_time=is_compressed_time,
                     is_overtime=is_overtime,
                 )
+                employee_id = row.col_5
+                employee = await get_employee_profile(employee_id, project, db)
                 record = EmployeeAttendanceRecord(
-                    employee_id=row.col_5,
+                    employee_id=employee_id,
                     employee_full_name=name,
                     position=get_employee_attribute(df, rows, i, "Department:"),
                     project=project,
-                    rate=0,
-                    allowance=0,
-                    phic=0,
-                    hdmf=0,
-                    sss=0,
+                    rate=employee.rate if employee else 0,
+                    allowance=employee.allowance if employee else 0,
+                    phic=employee.phic if employee else 0,
+                    hdmf=employee.hdmf if employee else 0,
+                    sss=employee.sss if employee else 0,
                     date=current,
                     work_hours=work_hours,
                     overtime_hours=overtime_hours,
