@@ -1,18 +1,10 @@
-import useAppStore from "@/store/useAppStore";
 import { Box } from "@mui/material";
-import { Attendance } from "@/pages";
-import { type ReactElement } from "react";
+import AppRoutes from "@/routes";
 
 const DRAWER_WIDTH = 240;
 const APP_BAR_HEIGHT = 65;
 
 const MainContent = () => {
-  const TAB_COMPONENTS: Record<string, ReactElement> = {
-    attendance: <Attendance />,
-  };
-
-  const { activeTab } = useAppStore();
-
   return (
     <Box
       component="main"
@@ -24,7 +16,7 @@ const MainContent = () => {
         p: 3,
       }}
     >
-      {TAB_COMPONENTS[activeTab] ?? <Attendance />}
+      <AppRoutes />
     </Box>
   );
 };

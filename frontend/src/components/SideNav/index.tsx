@@ -1,21 +1,27 @@
 import AppLogo from "@/assets/app-logo.svg?react";
 import AppName from "@/assets/app-name.svg?react";
-import useAppStore from "@/store/useAppStore";
+import PeopleIcon from "@mui/icons-material/People";
 import PunchClockIcon from "@mui/icons-material/PunchClock";
 import { Box, Drawer, Tabs } from "@mui/material";
+import { useLocation, useNavigate } from "react-router";
 import { StyledTab } from "./styles";
 
 const DRAWER_WIDTH = 240;
 const APP_BAR_HEIGHT = 65;
 
 const SideNav = () => {
-  const { activeTab, setActiveTab } = useAppStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const activeTab = location.pathname.startsWith("/employees")
+    ? "employees"
+    : "attendance";
 
   const handleChange = (
     _event: React.SyntheticEvent,
-    newValue: "attendance" | "payslipGenerator",
+    newValue: "attendance" | "employees",
   ) => {
-    setActiveTab(newValue);
+    navigate(newValue === "attendance" ? "/" : "/employees");
   };
 
   return (
@@ -52,6 +58,12 @@ const SideNav = () => {
             iconPosition="start"
             label="Attendance"
             value="attendance"
+          />
+          <StyledTab
+            icon={<PeopleIcon />}
+            iconPosition="start"
+            label="Employees"
+            value="employees"
           />
         </Tabs>
       </Box>
