@@ -1,11 +1,10 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Numeric, UniqueConstraint, func
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID
-
 from db import Base
+from sqlalchemy import Numeric, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class Employee(Base):

@@ -1,0 +1,20 @@
+[lint]
+# Attendance/time-log math (services/dates.py, services/time_logs.py) works
+# entirely in naive local time by design: it parses clock-in/out strings like
+# "08:00" from spreadsheets to compute work-hour durations for a single site,
+# not absolute timestamps. There's no timezone in the source data to attach.
+ignore = ["DTZ007", "DTZ901"]
+
+[lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.params.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Header",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Security",
+]

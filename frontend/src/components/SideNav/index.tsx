@@ -52,7 +52,12 @@ const SideNav = () => {
           alignItems: "flex-start",
         }}
       >
-        <Tabs orientation="vertical" value={activeTab} onChange={handleChange}>
+        <Tabs
+          orientation="vertical"
+          value={activeTab}
+          onChange={handleChange}
+          sx={{ width: "100%" }}
+        >
           <StyledTab
             icon={<PunchClockIcon />}
             iconPosition="start"

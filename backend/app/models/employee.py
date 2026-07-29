@@ -28,3 +28,13 @@ class EmployeeRead(EmployeeCreate):
 
     id: uuid.UUID
     created_at: datetime
+
+
+class EmployeeImportRowError(BaseModel):
+    row: int
+    reason: str
+
+
+class EmployeeImportSummary(BaseModel):
+    created: int
+    failed: list[EmployeeImportRowError]

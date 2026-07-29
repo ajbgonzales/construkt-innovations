@@ -1,14 +1,12 @@
 import os
-import pandas as pd
-
 from datetime import datetime, timedelta
-
 from io import BytesIO
 
+import pandas as pd
 from models.attendance import EmployeeAttendanceRecord
-
-from openpyxl import load_workbook, Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.constants import NON_DATE_COLUMNS
 from services.dataframe import get_loc_given_substring
@@ -16,18 +14,16 @@ from services.dates import get_date_range
 from services.queries import get_employee_profile
 from services.summary_formulas import (
     format_number_cells,
-    get_manpower,
     get_gross_amount,
+    get_manpower,
     get_total_disbursement,
 )
 from services.time_logs import get_hours
 from services.utils import (
+    generate_filename,
     get_employee_attribute,
     get_work_week_dates,
-    generate_filename,
 )
-
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _get_metadata(projects_metadata: dict):

@@ -1,8 +1,7 @@
 import re
 
-from pandas import DataFrame
-
 from openpyxl.utils import get_column_letter
+from pandas import DataFrame
 
 from services.dataframe import get_loc_given_substring
 from services.dates import get_week_range

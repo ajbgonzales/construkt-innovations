@@ -1,9 +1,9 @@
 import uuid
-
 from datetime import date
-from pydantic import BaseModel, ConfigDict, Field, UUID1
-from pydantic.alias_generators import to_camel
 from typing import Literal
+
+from pydantic import UUID1, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
 class EmployeeAttendanceRecord(BaseModel):

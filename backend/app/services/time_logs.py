@@ -1,7 +1,5 @@
 import re
-
 from datetime import datetime, timedelta
-
 from typing import Literal
 
 from .exceptions import TimeLogsError
