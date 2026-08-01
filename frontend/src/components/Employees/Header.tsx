@@ -9,8 +9,8 @@ const Header = () => {
         Employee Directory
       </Typography>
       <Typography sx={{ fontFamily: "Work Sans" }}>
-        Manage personnel data, site assignments, and emergency contact
-        information across all active projects.
+        Manage personnel data, site assignments, and contact information across
+        all active projects.
       </Typography>
     </Box>
   );
