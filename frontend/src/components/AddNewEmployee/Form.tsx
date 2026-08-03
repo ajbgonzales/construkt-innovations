@@ -14,6 +14,7 @@ import { isAxiosError } from "axios";
 import { Controller, useForm, type SubmitHandler } from "react-hook-form";
 import { useNavigate } from "react-router";
 import api from "@/api/base";
+import ProjectAutocomplete from "./ProjectAutocomplete";
 import {
   PERSONAL_INFO_ITEMS,
   PROJECT_INFO_ITEMS,
@@ -65,7 +66,9 @@ const Form = () => {
         });
         return;
       }
-      setError("root", { message: "Failed to add employee. Please try again." });
+      setError("root", {
+        message: "Failed to add employee. Please try again.",
+      });
     }
   };
 
@@ -138,21 +141,25 @@ const Form = () => {
             <Controller
               name={item.name as keyof AddNewEmployeeFormInput}
               control={control}
-              render={({ field, fieldState }) => (
-                <>
-                  <OutlinedInput
-                    {...field}
-                    id={item.id}
-                    type={item.type}
-                    error={!!fieldState.error}
-                  />
-                  {fieldState.error && (
-                    <FormHelperText error>
-                      {fieldState.error.message}
-                    </FormHelperText>
-                  )}
-                </>
-              )}
+              render={({ field, fieldState }) =>
+                item.name === "project" ? (
+                  <ProjectAutocomplete id={item.id} control={control} />
+                ) : (
+                  <>
+                    <OutlinedInput
+                      {...field}
+                      id={item.id}
+                      type={item.type}
+                      error={!!fieldState.error}
+                    />
+                    {fieldState.error && (
+                      <FormHelperText error>
+                        {fieldState.error.message}
+                      </FormHelperText>
+                    )}
+                  </>
+                )
+              }
             />
           </Grid>
         ))}
@@ -251,7 +258,6 @@ const Container = styled(Box)({
 }) as typeof Box;
 
 const InputLabel = styled(Typography)({
-  fontFamily: "Work Sans",
   width: "100%",
   textAlign: "start",
   fontWeight: 600,
@@ -260,7 +266,6 @@ const InputLabel = styled(Typography)({
 });
 
 const SectionLabel = styled(Divider)({
-  fontFamily: "Work Sans",
   textTransform: "uppercase",
   fontSize: "0.75rem",
   fontWeight: 800,

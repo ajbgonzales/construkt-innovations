@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from orm.employee import Employee
+from orm.project import Project
 from sqladmin import Admin, ModelView
 
 load_dotenv()
@@ -36,7 +37,7 @@ class EmployeeAdmin(ModelView, model=Employee):
     column_list: ClassVar = [
         Employee.full_name,
         Employee.employee_id,
-        Employee.project,
+        "project_ref.name",
         Employee.position,
         Employee.rate,
         Employee.allowance,
@@ -48,14 +49,24 @@ class EmployeeAdmin(ModelView, model=Employee):
     column_searchable_list: ClassVar = [
         Employee.full_name,
         Employee.employee_id,
-        Employee.project,
+        "project_ref.name",
     ]
     column_sortable_list: ClassVar = [
         Employee.full_name,
         Employee.employee_id,
-        Employee.project,
+        "project_ref.name",
         Employee.created_at,
     ]
 
 
+class ProjectAdmin(ModelView, model=Project):
+    name = "Project"
+    name_plural = "Projects"
+    icon = "fa-solid fa-diagram-project"
+    column_list: ClassVar = [Project.name]
+    column_searchable_list: ClassVar = [Project.name]
+    column_sortable_list: ClassVar = [Project.name]
+
+
 admin.add_view(EmployeeAdmin)
+admin.add_view(ProjectAdmin)

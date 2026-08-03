@@ -13,7 +13,9 @@ from models.employee import (
     EmployeeImportSummary,
     EmployeeRead,
 )
+from models.project import ProjectCreate, ProjectRead
 from orm.employee import Employee
+from orm.project import Project
 from pydantic import ValidationError
 from services.spreadsheet_processor import (
     clean_attendance_spreadsheet,
@@ -47,6 +49,52 @@ EMPLOYEE_IMPORT_STRING_COLUMNS = [
 ]
 
 
+async def get_or_create_project(name: str, db: AsyncSession) -> Project:
+    result = await db.execute(select(Project).where(Project.name == name))
+    project = result.scalar_one_or_none()
+    if project is None:
+        project = Project(name=name)
+        db.add(project)
+        await db.flush()
+    return project
+
+
+async def get_or_create_projects(
+    names: set[str], db: AsyncSession
+) -> dict[str, uuid.UUID]:
+    if not names:
+        return {}
+    result = await db.execute(select(Project).where(Project.name.in_(names)))
+    name_to_id = {project.name: project.id for project in result.scalars().all()}
+    missing_names = names - name_to_id.keys()
+    if new_projects := [Project(name=name) for name in missing_names]:
+        db.add_all(new_projects)
+        await db.flush()
+        for project in new_projects:
+            name_to_id[project.name] = project.id
+    return name_to_id
+
+
+@router.get("/projects", response_model=list[ProjectRead])
+async def list_projects(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Project).order_by(Project.name))
+    return result.scalars().all()
+
+
+@router.post("/projects", response_model=ProjectRead, status_code=201)
+async def create_project(payload: ProjectCreate, db: AsyncSession = Depends(get_db)):
+    existing = await db.execute(select(Project).where(Project.name == payload.name))
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=409, detail="A project with this name already exists"
+        )
+    project = Project(name=payload.name)
+    db.add(project)
+    await db.commit()
+    await db.refresh(project)
+    return project
+
+
 @router.get("/employees/{id}", response_model=EmployeeRead)
 async def get_employee(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     employee = await db.get(Employee, id)
@@ -64,8 +112,10 @@ async def update_employee(
     if employee is None:
         raise HTTPException(status_code=404, detail="Employee not found.")
 
-    for field, value in payload.model_dump().items():
+    project = await get_or_create_project(payload.project, db)
+    for field, value in payload.model_dump(exclude={"project"}).items():
         setattr(employee, field, value)
+    employee.project_id = project.id
 
     try:
         await db.commit()
@@ -97,7 +147,10 @@ async def list_employees(db: AsyncSession = Depends(get_db)):
 
 @router.post("/employees", response_model=EmployeeRead, status_code=201)
 async def create_employee(payload: EmployeeCreate, db: AsyncSession = Depends(get_db)):
-    employee = Employee(**payload.model_dump())
+    project = await get_or_create_project(payload.project, db)
+    employee = Employee(
+        **payload.model_dump(exclude={"project"}), project_id=project.id
+    )
     db.add(employee)
     try:
         await db.commit()
@@ -180,13 +233,17 @@ async def import_employees(
         seen_keys.add(key)
         valid_rows.append((spreadsheet_row, payload))
 
-    existing_keys: set[tuple[str, str]] = set()
+    project_name_to_id = await get_or_create_projects(
+        {payload.project for _, payload in valid_rows}, db
+    )
+
+    existing_keys: set[tuple[str, uuid.UUID]] = set()
     if valid_rows:
         result = await db.execute(
-            select(Employee.employee_id, Employee.project).where(
-                tuple_(Employee.employee_id, Employee.project).in_(
+            select(Employee.employee_id, Employee.project_id).where(
+                tuple_(Employee.employee_id, Employee.project_id).in_(
                     [
-                        (payload.employee_id, payload.project)
+                        (payload.employee_id, project_name_to_id[payload.project])
                         for _, payload in valid_rows
                     ]
                 )
@@ -196,7 +253,8 @@ async def import_employees(
 
     to_insert = []
     for spreadsheet_row, payload in valid_rows:
-        key = (payload.employee_id, payload.project)
+        project_id = project_name_to_id[payload.project]
+        key = (payload.employee_id, project_id)
         if key in existing_keys:
             failed.append(
                 EmployeeImportRowError(
@@ -205,7 +263,9 @@ async def import_employees(
                 )
             )
             continue
-        to_insert.append(Employee(**payload.model_dump()))
+        to_insert.append(
+            Employee(**payload.model_dump(exclude={"project"}), project_id=project_id)
+        )
 
     db.add_all(to_insert)
     await db.commit()
