@@ -5,6 +5,7 @@ import {
   PROJECT_INFO_ITEMS,
   RATE_AND_BENEFITS_ITEMS,
 } from "@/components/AddNewEmployee/constants";
+import ProjectAutocomplete from "@/components/AddNewEmployee/ProjectAutocomplete";
 import {
   addNewEmployeeSchema,
   type AddNewEmployeeFormInput,
@@ -153,21 +154,25 @@ const MainContent: FC<MainContentProps> = ({ employee }) => {
                 <Controller
                   name={item.name as keyof AddNewEmployeeFormInput}
                   control={control}
-                  render={({ field, fieldState }) => (
-                    <>
-                      <OutlinedInput
-                        {...field}
-                        id={item.id}
-                        type={item.type}
-                        error={!!fieldState.error}
-                      />
-                      {fieldState.error && (
-                        <FormHelperText error>
-                          {fieldState.error.message}
-                        </FormHelperText>
-                      )}
-                    </>
-                  )}
+                  render={({ field, fieldState }) =>
+                    item.name === "project" ? (
+                      <ProjectAutocomplete id={item.id} control={control} />
+                    ) : (
+                      <>
+                        <OutlinedInput
+                          {...field}
+                          id={item.id}
+                          type={item.type}
+                          error={!!fieldState.error}
+                        />
+                        {fieldState.error && (
+                          <FormHelperText error>
+                            {fieldState.error.message}
+                          </FormHelperText>
+                        )}
+                      </>
+                    )
+                  }
                 />
               </Grid>
             ))}
