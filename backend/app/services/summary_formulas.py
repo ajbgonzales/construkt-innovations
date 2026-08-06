@@ -25,26 +25,26 @@ def get_manpower(ws):
     return f"=ROUND(SUM('{ws.title}'!{start_col_letter}2:{last_col_letter}{ws.max_row})/48,2)"
 
 
-def get_gross_amount(ws):
-    col_letter = get_header_col_letter(ws, "Gross Amount")
+def get_net_amount(ws):
+    col_letter = get_header_col_letter(ws, "Net Amount")
     return f"=SUM('{ws.title}'!{col_letter}2:{col_letter}{ws.max_row})"
 
 
 def get_total_disbursement(ws):
     manpower_col_letter = get_header_col_letter(ws, "Manpower")
-    gross_amount_col_letter = get_header_col_letter(ws, "Gross Amount")
+    net_amount_col_letter = get_header_col_letter(ws, "Net Amount")
     ws.append(
         [
             "TOTAL Disbursement",
             f"=SUM({manpower_col_letter}{2}:{manpower_col_letter}{ws.max_row})",
-            f"=SUM({gross_amount_col_letter}{2}:{gross_amount_col_letter}{ws.max_row})",
+            f"=SUM({net_amount_col_letter}{2}:{net_amount_col_letter}{ws.max_row})",
         ]
     )
 
 
 def format_number_cells(ws):
     header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
-    col_num = header_row.index("Gross Amount") + 1
+    col_num = header_row.index("Net Amount") + 1
 
     for row in range(2, ws.max_row + 1):
         ws.cell(row=row, column=col_num).number_format = "#,##0.00"

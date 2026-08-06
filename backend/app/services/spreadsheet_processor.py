@@ -14,8 +14,8 @@ from services.dates import get_date_range
 from services.queries import get_employee_profile
 from services.summary_formulas import (
     format_number_cells,
-    get_gross_amount,
     get_manpower,
+    get_net_amount,
     get_total_disbursement,
 )
 from services.time_logs import get_hours
@@ -199,11 +199,8 @@ def _create_cleaned_spreadsheet(
         ws.cell(row=row_idx, column=col["Total Work Hours"], value=twh_formula)
         gross_formula = (
             f"=ROUND((({rate_letter}{row_idx}+{allowance_letter}{row_idx})/8)"
-            f"*({twh_letter}{row_idx}-{ot_letter}{row_idx})"
-            f"+({ot_letter}{row_idx}*(1.25*({rate_letter}{row_idx}/8)))"
-            f"+{phic_letter}{row_idx}"
-            f"+{hdmf_letter}{row_idx}"
-            f"+{sss_letter}{row_idx},2)"
+            f"*({twh_letter}{row_idx})"
+            f"+({ot_letter}{row_idx}*(1.25*({rate_letter}{row_idx}/8))),2)"
         )
         net_formula = (
             f"=ROUND({gross_letter}{row_idx}"
@@ -301,16 +298,14 @@ def _get_column_letters(columns):
 
 
 def _update_summary_dict(summary_dict, new_ws):
-    updated_summary_dict = {
+    return {
         **summary_dict,
         new_ws.title: {
             "Project": new_ws.title,
             "Manpower": get_manpower(new_ws),
-            "Gross Amount": get_gross_amount(new_ws),
+            "Net Amount": get_net_amount(new_ws),
         },
     }
-
-    return updated_summary_dict
 
 
 def _create_summary_sheet(summary_dict, wb):
