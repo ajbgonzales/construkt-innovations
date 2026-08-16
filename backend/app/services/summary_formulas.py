@@ -30,6 +30,45 @@ def get_net_amount(ws):
     return f"=SUM('{ws.title}'!{col_letter}2:{col_letter}{ws.max_row})"
 
 
+PROJECT_TOTALS_EXCLUDED_COLUMNS = {
+    "Employee ID",
+    "Employee Full Name",
+    "Position",
+    "Project",
+    "Is Flagged",
+    "Notes",
+}
+
+
+def get_project_totals_row(ws):
+    header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+    last_row = ws.max_row
+
+    excluded_cols = [
+        col_num
+        for col_num, header in enumerate(header_row, start=1)
+        if header in PROJECT_TOTALS_EXCLUDED_COLUMNS
+    ]
+    label_col = min(excluded_cols)
+
+    totals_row = []
+    for col_num, header in enumerate(header_row, start=1):
+        if header in PROJECT_TOTALS_EXCLUDED_COLUMNS:
+            totals_row.append("TOTAL" if col_num == label_col else None)
+        else:
+            col_letter = get_column_letter(col_num)
+            totals_row.append(f"=SUM({col_letter}2:{col_letter}{last_row})")
+
+    ws.append(totals_row)
+    totals_row_num = ws.max_row
+    ws.merge_cells(
+        start_row=totals_row_num,
+        start_column=label_col,
+        end_row=totals_row_num,
+        end_column=max(excluded_cols),
+    )
+
+
 def get_total_disbursement(ws):
     manpower_col_letter = get_header_col_letter(ws, "Manpower")
     net_amount_col_letter = get_header_col_letter(ws, "Net Amount")
@@ -42,9 +81,10 @@ def get_total_disbursement(ws):
     )
 
 
-def format_number_cells(ws):
+def format_number_cells(ws, column_names):
     header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
-    col_num = header_row.index("Net Amount") + 1
 
-    for row in range(2, ws.max_row + 1):
-        ws.cell(row=row, column=col_num).number_format = "#,##0.00"
+    for name in column_names:
+        col_num = header_row.index(name) + 1
+        for row in range(2, ws.max_row + 1):
+            ws.cell(row=row, column=col_num).number_format = "#,##0.00"
