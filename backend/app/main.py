@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from orm.employee import Employee
+from orm.overtime_request import OvertimeRequest
 from orm.project import Project
 from sqladmin import Admin, ModelView
 
@@ -68,5 +69,26 @@ class ProjectAdmin(ModelView, model=Project):
     column_sortable_list: ClassVar = [Project.name]
 
 
+class OvertimeRequestAdmin(ModelView, model=OvertimeRequest):
+    name = "Overtime Request"
+    name_plural = "Overtime Requests"
+    icon = "fa-solid fa-clock"
+    column_list: ClassVar = [
+        OvertimeRequest.date,
+        "project_ref.name",
+        OvertimeRequest.start_time,
+        OvertimeRequest.end_time,
+        OvertimeRequest.employees,
+        OvertimeRequest.created_at,
+    ]
+    column_searchable_list: ClassVar = ["project_ref.name"]
+    column_sortable_list: ClassVar = [
+        OvertimeRequest.date,
+        "project_ref.name",
+        OvertimeRequest.created_at,
+    ]
+
+
 admin.add_view(EmployeeAdmin)
 admin.add_view(ProjectAdmin)
+admin.add_view(OvertimeRequestAdmin)

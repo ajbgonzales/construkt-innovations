@@ -35,7 +35,8 @@ const ImportEmployeesButton = () => {
         ? (error.response?.data?.detail as string | undefined)
         : undefined;
       setErrorMessage(
-        detail ?? "Failed to import file. Please check the format and try again.",
+        detail ??
+          "Failed to import file. Please check the format and try again.",
       );
     } finally {
       setIsUploading(false);
@@ -43,7 +44,7 @@ const ImportEmployeesButton = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ alignSelf: "end" }}>
       <Button
         variant="outlined"
         startIcon={
@@ -72,7 +73,9 @@ const ImportEmployeesButton = () => {
         onClose={() => setSummary(null)}
       >
         <Alert
-          severity={summary && summary.failed.length > 0 ? "warning" : "success"}
+          severity={
+            summary && summary.failed.length > 0 ? "warning" : "success"
+          }
           onClose={() => setSummary(null)}
         >
           {summary && (
