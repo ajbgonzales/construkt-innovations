@@ -16,6 +16,7 @@ from services.summary_formulas import (
     format_number_cells,
     get_manpower,
     get_net_amount,
+    get_project_totals_row,
     get_total_disbursement,
 )
 from services.time_logs import get_hours
@@ -237,7 +238,23 @@ def compile_spreadsheets(file_paths: list[str], buffer: BytesIO):
         if not work_week_dates:
             work_week_dates = get_work_week_dates(new_ws)
 
+        # Capture Manpower/Net Amount formulas before the totals row is
+        # appended, so they don't sum the totals row into itself.
         summary_dict = _update_summary_dict(summary_dict, new_ws)
+
+        get_project_totals_row(new_ws)
+        format_number_cells(
+            new_ws,
+            [
+                "Rate",
+                "Allowance",
+                "PHIC",
+                "HDMF",
+                "SSS",
+                "Gross Amount",
+                "Net Amount",
+            ],
+        )
 
     _create_summary_sheet(summary_dict, workbook)
     workbook.save(buffer)
@@ -325,4 +342,4 @@ def _create_summary_sheet(summary_dict, wb):
         new_ws.append([record.get(h) for h in headers])
 
     get_total_disbursement(new_ws)
-    format_number_cells(new_ws)
+    format_number_cells(new_ws, ["Net Amount"])
