@@ -1,6 +1,7 @@
+import { PageHeader } from "@/components";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Box, Button, Typography } from "@mui/material";
-import { Form, Header } from "@/components/AddNewEmployee";
+import { ImportEmployeesButton, Form } from "@/components/AddNewEmployee";
 import { Link } from "react-router";
 
 const AddNewEmployee = () => {
@@ -32,7 +33,11 @@ const AddNewEmployee = () => {
         </Link>
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-        <Header />
+        <PageHeader
+          headerText="New Employee Registration"
+          caption="Onboard a new employee to the active project management system."
+        />
+        <ImportEmployeesButton />
         <Form />
       </Box>
     </>

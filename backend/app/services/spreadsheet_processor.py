@@ -10,12 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.constants import NON_DATE_COLUMNS
 from services.dataframe import get_loc_given_substring
-from services.dates import get_date_range
+from services.dates import get_date_range, week_of_month
 from services.queries import get_employee_profile
 from services.summary_formulas import (
     format_number_cells,
     get_manpower,
     get_net_amount,
+    get_project_totals_row,
     get_total_disbursement,
 )
 from services.time_logs import get_hours
@@ -97,7 +98,9 @@ async def _get_employee_records(
             current = start_date
             col_num = 1
             while current <= end_date:
-                work_hours, overtime_hours, is_flagged, notes = get_hours(
+                employee_id = row.col_5
+                employee = await get_employee_profile(employee_id, project, db)
+                work_hours, overtime_hours, is_flagged, notes = await get_hours(
                     rows=rows,
                     index=i + 2,
                     date=current,
@@ -105,11 +108,12 @@ async def _get_employee_records(
                     start_time=start_time,
                     end_time=end_time,
                     saturday_end_time=saturday_end_time,
+                    employee=employee,
+                    db=db,
                     is_compressed_time=is_compressed_time,
                     is_overtime=is_overtime,
                 )
-                employee_id = row.col_5
-                employee = await get_employee_profile(employee_id, project, db)
+                current_week = week_of_month(current)
                 record = EmployeeAttendanceRecord(
                     employee_id=employee_id,
                     employee_full_name=name,
@@ -117,9 +121,9 @@ async def _get_employee_records(
                     project=project,
                     rate=employee.rate if employee else 0,
                     allowance=employee.allowance if employee else 0,
-                    phic=employee.phic if employee else 0,
-                    hdmf=employee.hdmf if employee else 0,
-                    sss=employee.sss if employee else 0,
+                    phic=employee.phic if employee and current_week == 4 else 0,
+                    hdmf=employee.hdmf if employee and current_week == 4 else 0,
+                    sss=employee.sss if employee and current_week == 2 else 0,
                     date=current,
                     work_hours=work_hours,
                     overtime_hours=overtime_hours,
@@ -202,12 +206,13 @@ def _create_cleaned_spreadsheet(
             f"*({twh_letter}{row_idx})"
             f"+({ot_letter}{row_idx}*(1.25*({rate_letter}{row_idx}/8))),2)"
         )
-        net_formula = (
-            f"=ROUND({gross_letter}{row_idx}"
+        net_amount_formula = (
+            f"ROUND({gross_letter}{row_idx}"
             f"-{phic_letter}{row_idx}"
             f"-{hdmf_letter}{row_idx}"
             f"-{sss_letter}{row_idx},2)"
         )
+        net_formula = f"=IF({net_amount_formula}>0,{net_amount_formula},0)"
         gross_cell = ws.cell(row=row_idx, column=gross_col, value=gross_formula)
         gross_cell.number_format = "#,##0.00"
         net_cell = ws.cell(row=row_idx, column=net_col, value=net_formula)
@@ -233,7 +238,23 @@ def compile_spreadsheets(file_paths: list[str], buffer: BytesIO):
         if not work_week_dates:
             work_week_dates = get_work_week_dates(new_ws)
 
+        # Capture Manpower/Net Amount formulas before the totals row is
+        # appended, so they don't sum the totals row into itself.
         summary_dict = _update_summary_dict(summary_dict, new_ws)
+
+        get_project_totals_row(new_ws)
+        format_number_cells(
+            new_ws,
+            [
+                "Rate",
+                "Allowance",
+                "PHIC",
+                "HDMF",
+                "SSS",
+                "Gross Amount",
+                "Net Amount",
+            ],
+        )
 
     _create_summary_sheet(summary_dict, workbook)
     workbook.save(buffer)
@@ -321,4 +342,4 @@ def _create_summary_sheet(summary_dict, wb):
         new_ws.append([record.get(h) for h in headers])
 
     get_total_disbursement(new_ws)
-    format_number_cells(new_ws)
+    format_number_cells(new_ws, ["Net Amount"])

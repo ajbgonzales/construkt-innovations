@@ -1,8 +1,5 @@
-import {
-  ActionsContainer,
-  Header,
-  RecentProfilesTable,
-} from "@/components/Employees";
+import { PageHeader } from "@/components";
+import { ActionsContainer, RecentProfilesTable } from "@/components/Employees";
 import { Box } from "@mui/material";
 import { useState } from "react";
 
@@ -11,7 +8,11 @@ const Employees = () => {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: "32px" }}>
-      <Header />
+      <PageHeader
+        headerText="Employee Directory"
+        caption="Manage personnel data, project assignments, and contact information across
+        all active projects."
+      />
       <ActionsContainer search={search} onSearchChange={setSearch} />
       <RecentProfilesTable search={search} />
     </Box>

@@ -2,10 +2,14 @@ import re
 from datetime import datetime, timedelta
 from typing import Literal
 
+from orm.employee import Employee
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .exceptions import TimeLogsError
+from .queries import get_overtime_request
 
 
-def get_hours(
+async def get_hours(
     rows,
     index: int,
     date: datetime,
@@ -13,6 +17,8 @@ def get_hours(
     start_time: str,
     end_time: str,
     saturday_end_time: str,
+    employee: Employee,
+    db: AsyncSession,
     is_compressed_time: bool,
     is_overtime: bool,
 ):
@@ -51,8 +57,10 @@ def get_hours(
             time_obj_arr = _get_time_obj_arr(time_logs)
             time_in = _get_time_in(date, start_time, time_obj_arr)
             time_out = _get_time_out(date, end_time, time_obj_arr, is_overtime)
-            work_hours, overtime_hours = _get_work_hours(
+            work_hours, overtime_hours = await _get_work_hours(
                 date,
+                employee,
+                db,
                 time_in,
                 time_out,
                 end_time,
@@ -177,8 +185,10 @@ def _get_time_out(date, end_time, time_obj_arr, is_overtime):
 # TODO: get accurate computation for overtime considering overtime requests
 # employees can time out before consuming all of overtime hours.
 # This function temporarily returns 0 for overtime hours
-def _get_work_hours(
+async def _get_work_hours(
     date,
+    employee,
+    db,
     time_in,
     time_out,
     end_time,
@@ -199,8 +209,22 @@ def _get_work_hours(
             date, datetime.strptime(end_time, "%H:%M").time()
         )
 
-    work_hours = ((time_out - time_in).total_seconds() - break_seconds) / 3600
-    if is_overtime and time_out.time() > (end_time_obj + timedelta(minutes=10)).time():
-        # overtime_hours = (time_out - end_time_obj).total_seconds() / 3600
-        return total_work_hours, 0
+    work_hours = min(
+        ((time_out - time_in).total_seconds() - break_seconds) / 3600, total_work_hours
+    )
+    if (
+        is_overtime
+        and employee
+        and time_out.time() > (end_time_obj + timedelta(minutes=10)).time()
+    ):
+        request = await get_overtime_request(date, employee, db)
+        if request:
+            request_end_time = datetime.combine(date, request.end_time)
+            if time_out > request_end_time:
+                overtime_hours = request.duration_hours
+            else:
+                overtime_hours = (time_out - end_time_obj).total_seconds() / 3600
+        else:
+            overtime_hours = 0
+        return round(work_hours, 2), round(overtime_hours, 2)
     return round(work_hours, 2), 0
