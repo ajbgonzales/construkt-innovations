@@ -1,10 +1,14 @@
 import { Route, Routes } from "react-router";
-import AddNewEmployee from "@/pages/AddNewEmployee";
 import {
+  AddNewEmployee,
   Attendance,
   EmployeeProfile,
   EmployeeProfileEdit,
   Employees,
+  NewOvertimeRequest,
+  OvertimeRequestEdit,
+  OvertimeRequestPage,
+  OvertimeRequests,
 } from "@/pages";
 
 const AppRoutes = () => {
@@ -15,6 +19,13 @@ const AppRoutes = () => {
       <Route path="/employees/new" element={<AddNewEmployee />} />
       <Route path="/employees/:id" element={<EmployeeProfile />} />
       <Route path="/employees/:id/edit" element={<EmployeeProfileEdit />} />
+      <Route path="/overtime-requests" element={<OvertimeRequests />} />
+      <Route path="/overtime-requests/new" element={<NewOvertimeRequest />} />
+      <Route path="/overtime-requests/:id" element={<OvertimeRequestPage />} />
+      <Route
+        path="/overtime-requests/:id/edit"
+        element={<OvertimeRequestEdit />}
+      />
     </Routes>
   );
 };

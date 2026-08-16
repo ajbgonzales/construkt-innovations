@@ -13,8 +13,10 @@ from models.employee import (
     EmployeeImportSummary,
     EmployeeRead,
 )
+from models.overtime_request import OvertimeRequestCreate, OvertimeRequestRead
 from models.project import ProjectCreate, ProjectRead
 from orm.employee import Employee
+from orm.overtime_request import OvertimeRequest
 from orm.project import Project
 from pydantic import ValidationError
 from services.spreadsheet_processor import (
@@ -271,6 +273,117 @@ async def import_employees(
     await db.commit()
 
     return EmployeeImportSummary(created=len(to_insert), failed=failed)
+
+
+@router.get("/overtime-requests", response_model=list[OvertimeRequestRead])
+async def list_overtime_requests(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(OvertimeRequest).order_by(OvertimeRequest.created_at.desc())
+    )
+    return result.unique().scalars().all()
+
+
+@router.get("/overtime-requests/{id}", response_model=OvertimeRequestRead)
+async def get_overtime_request(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    overtime_request = await db.get(OvertimeRequest, id)
+
+    if overtime_request is None:
+        raise HTTPException(status_code=404, detail="Overtime Request not found.")
+    return overtime_request
+
+
+@router.delete("/overtime-requests/{id}", status_code=204)
+async def delete_overtime_request(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    overtime_request = await db.get(OvertimeRequest, id)
+    if overtime_request is None:
+        raise HTTPException(status_code=404, detail="Overtime Request not found.")
+
+    await db.delete(overtime_request)
+    await db.commit()
+
+
+@router.post("/overtime-requests", response_model=OvertimeRequestRead, status_code=201)
+async def create_overtime_request(
+    payload: OvertimeRequestCreate, db: AsyncSession = Depends(get_db)
+):
+    project = await db.get(Project, payload.project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    result = await db.execute(
+        select(Employee).where(Employee.id.in_(payload.employee_ids))
+    )
+    employees = result.scalars().all()
+    if len(employees) != len(set(payload.employee_ids)):
+        raise HTTPException(status_code=404, detail="One or more employees not found")
+    if any(employee.project_id != payload.project_id for employee in employees):
+        raise HTTPException(
+            status_code=400,
+            detail="All employees must belong to the selected project",
+        )
+
+    overtime_request = OvertimeRequest(
+        date=payload.date,
+        project_id=payload.project_id,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        activities=payload.activities,
+        employees=employees,
+    )
+    db.add(overtime_request)
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="An overtime request already exists for this date and project",
+        ) from e
+    await db.refresh(overtime_request)
+    return overtime_request
+
+
+@router.put("/overtime-requests/{id}", response_model=OvertimeRequestRead)
+async def update_overtime_request(
+    id: uuid.UUID, payload: OvertimeRequestCreate, db: AsyncSession = Depends(get_db)
+):
+    overtime_request = await db.get(OvertimeRequest, id)
+    if overtime_request is None:
+        raise HTTPException(status_code=404, detail="Overtime Request not found.")
+
+    project = await db.get(Project, payload.project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    result = await db.execute(
+        select(Employee).where(Employee.id.in_(payload.employee_ids))
+    )
+    employees = result.scalars().all()
+    if len(employees) != len(set(payload.employee_ids)):
+        raise HTTPException(status_code=404, detail="One or more employees not found")
+    if any(employee.project_id != payload.project_id for employee in employees):
+        raise HTTPException(
+            status_code=400,
+            detail="All employees must belong to the selected project",
+        )
+
+    overtime_request.date = payload.date
+    overtime_request.project_id = payload.project_id
+    overtime_request.start_time = payload.start_time
+    overtime_request.end_time = payload.end_time
+    overtime_request.activities = payload.activities
+    overtime_request.employees = employees
+
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="An overtime request already exists for this date and project",
+        ) from e
+    await db.refresh(overtime_request)
+    return overtime_request
 
 
 @router.post("/process_attendance_records")

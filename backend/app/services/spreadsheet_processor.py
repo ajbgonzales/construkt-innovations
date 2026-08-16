@@ -97,7 +97,9 @@ async def _get_employee_records(
             current = start_date
             col_num = 1
             while current <= end_date:
-                work_hours, overtime_hours, is_flagged, notes = get_hours(
+                employee_id = row.col_5
+                employee = await get_employee_profile(employee_id, project, db)
+                work_hours, overtime_hours, is_flagged, notes = await get_hours(
                     rows=rows,
                     index=i + 2,
                     date=current,
@@ -105,11 +107,11 @@ async def _get_employee_records(
                     start_time=start_time,
                     end_time=end_time,
                     saturday_end_time=saturday_end_time,
+                    employee=employee,
+                    db=db,
                     is_compressed_time=is_compressed_time,
                     is_overtime=is_overtime,
                 )
-                employee_id = row.col_5
-                employee = await get_employee_profile(employee_id, project, db)
                 record = EmployeeAttendanceRecord(
                     employee_id=employee_id,
                     employee_full_name=name,
@@ -202,12 +204,13 @@ def _create_cleaned_spreadsheet(
             f"*({twh_letter}{row_idx})"
             f"+({ot_letter}{row_idx}*(1.25*({rate_letter}{row_idx}/8))),2)"
         )
-        net_formula = (
-            f"=ROUND({gross_letter}{row_idx}"
+        net_amount_formula = (
+            f"ROUND({gross_letter}{row_idx}"
             f"-{phic_letter}{row_idx}"
             f"-{hdmf_letter}{row_idx}"
             f"-{sss_letter}{row_idx},2)"
         )
+        net_formula = f"=IF({net_amount_formula}>0,{net_amount_formula},0)"
         gross_cell = ws.cell(row=row_idx, column=gross_col, value=gross_formula)
         gross_cell.number_format = "#,##0.00"
         net_cell = ws.cell(row=row_idx, column=net_col, value=net_formula)

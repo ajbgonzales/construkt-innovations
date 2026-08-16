@@ -1,10 +1,11 @@
 import AppLogo from "@/assets/app-logo.svg?react";
 import AppName from "@/assets/app-name.svg?react";
+import MoreTimeIcon from "@mui/icons-material/MoreTime";
 import PeopleIcon from "@mui/icons-material/People";
 import PunchClockIcon from "@mui/icons-material/PunchClock";
-import { Box, Drawer, Tabs } from "@mui/material";
+import { Box, Drawer, Tab, Tabs } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import { useLocation, useNavigate } from "react-router";
-import { StyledTab } from "./styles";
 
 const DRAWER_WIDTH = 240;
 const APP_BAR_HEIGHT = 65;
@@ -15,13 +16,21 @@ const SideNav = () => {
 
   const activeTab = location.pathname.startsWith("/employees")
     ? "employees"
-    : "attendance";
+    : location.pathname.startsWith("/overtime-requests")
+      ? "overtimeRequest"
+      : "attendance";
 
   const handleChange = (
     _event: React.SyntheticEvent,
-    newValue: "attendance" | "employees",
+    newValue: "attendance" | "employees" | "overtimeRequest",
   ) => {
-    navigate(newValue === "attendance" ? "/" : "/employees");
+    navigate(
+      newValue === "attendance"
+        ? "/"
+        : newValue === "employees"
+          ? "/employees"
+          : "/overtime-requests",
+    );
   };
 
   return (
@@ -70,6 +79,12 @@ const SideNav = () => {
             label="Employees"
             value="employees"
           />
+          <StyledTab
+            icon={<MoreTimeIcon />}
+            iconPosition="start"
+            label="Overtime Request"
+            value="overtimeRequest"
+          />
         </Tabs>
       </Box>
     </Drawer>
@@ -77,3 +92,13 @@ const SideNav = () => {
 };
 
 export default SideNav;
+
+const StyledTab = styled(Tab)({
+  color: "#64748b",
+  textTransform: "uppercase",
+  justifyContent: "left",
+  textAlign: "left",
+  "&.Mui-selected": {
+    color: "#EA580C",
+  },
+});
