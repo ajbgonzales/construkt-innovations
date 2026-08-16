@@ -15,3 +15,10 @@ def get_week_range(date_str: str, fmt: str = "%Y-%m-%d") -> tuple[datetime, date
     start_of_week = date - timedelta(days=date.weekday())  # Monday
     end_of_week = start_of_week + timedelta(days=6)  # Sunday
     return start_of_week, end_of_week
+
+
+def week_of_month(date: datetime) -> int:
+    first_of_month = date.replace(day=1)
+    days_to_first_monday = (7 - first_of_month.weekday()) % 7
+    first_monday = first_of_month + timedelta(days=days_to_first_monday)
+    return (date - first_monday).days // 7 + 1
