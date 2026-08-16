@@ -14,8 +14,9 @@ export const StyledButton = styled(Button)({
   background: "#F5A623",
   marginTop: "1rem",
   marginBottom: "1rem",
-  width: "fit-content",
-  alignSelf: "end",
+  width: "500px",
+  alignSelf: "center",
+  fontWeight: 600,
 });
 
 export const StyledTableCell = styled(TableCell)({

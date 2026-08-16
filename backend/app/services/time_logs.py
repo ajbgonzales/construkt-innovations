@@ -209,7 +209,9 @@ async def _get_work_hours(
             date, datetime.strptime(end_time, "%H:%M").time()
         )
 
-    work_hours = ((time_out - time_in).total_seconds() - break_seconds) / 3600
+    work_hours = min(
+        ((time_out - time_in).total_seconds() - break_seconds) / 3600, total_work_hours
+    )
     if (
         is_overtime
         and employee
@@ -224,5 +226,5 @@ async def _get_work_hours(
                 overtime_hours = (time_out - end_time_obj).total_seconds() / 3600
         else:
             overtime_hours = 0
-        return total_work_hours, overtime_hours
+        return round(work_hours, 2), round(overtime_hours, 2)
     return round(work_hours, 2), 0
