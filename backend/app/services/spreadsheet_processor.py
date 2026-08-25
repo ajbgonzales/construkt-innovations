@@ -98,7 +98,13 @@ async def _get_employee_records(
             current = start_date
             col_num = 1
             while current <= end_date:
-                employee_id = row.col_5
+                raw_employee_id = row.col_5
+                employee_id = (
+                    str(int(raw_employee_id))
+                    if isinstance(raw_employee_id, float)
+                    and raw_employee_id.is_integer()
+                    else str(raw_employee_id)
+                )
                 employee = await get_employee_profile(employee_id, project, db)
                 work_hours, overtime_hours, is_flagged, notes = await get_hours(
                     rows=rows,
