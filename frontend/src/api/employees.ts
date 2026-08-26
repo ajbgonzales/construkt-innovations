@@ -13,6 +13,7 @@ export interface Employee {
   sss: number;
   hdmf: number;
   phic: number;
+  others: number;
   createdAt: string;
 }
 

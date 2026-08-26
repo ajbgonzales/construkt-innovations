@@ -3,6 +3,7 @@ import AppName from "@/assets/app-name.svg?react";
 import MoreTimeIcon from "@mui/icons-material/MoreTime";
 import PeopleIcon from "@mui/icons-material/People";
 import PunchClockIcon from "@mui/icons-material/PunchClock";
+import ReceiptIcon from "@mui/icons-material/Receipt";
 import { Box, Drawer, Tab, Tabs } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { useLocation, useNavigate } from "react-router";
@@ -18,18 +19,27 @@ const SideNav = () => {
     ? "employees"
     : location.pathname.startsWith("/overtime-requests")
       ? "overtimeRequest"
-      : "attendance";
+      : location.pathname.startsWith("/payslip-generator") ||
+          location.pathname.startsWith("/payroll-periods")
+        ? "payslipGenerator"
+        : "attendance";
 
   const handleChange = (
     _event: React.SyntheticEvent,
-    newValue: "attendance" | "employees" | "overtimeRequest",
+    newValue:
+      | "attendance"
+      | "employees"
+      | "overtimeRequest"
+      | "payslipGenerator",
   ) => {
     navigate(
       newValue === "attendance"
         ? "/"
         : newValue === "employees"
           ? "/employees"
-          : "/overtime-requests",
+          : newValue === "payslipGenerator"
+            ? "/payslip-generator"
+            : "/overtime-requests",
     );
   };
 
@@ -84,6 +94,12 @@ const SideNav = () => {
             iconPosition="start"
             label="Overtime Request"
             value="overtimeRequest"
+          />
+          <StyledTab
+            icon={<ReceiptIcon />}
+            iconPosition="start"
+            label="Payslip Generator"
+            value="payslipGenerator"
           />
         </Tabs>
       </Box>

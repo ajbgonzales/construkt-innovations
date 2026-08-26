@@ -109,4 +109,5 @@ const StyledGridItem = styled(Grid)({
 const Value = styled(Typography)({
   fontSize: "1rem",
   color: "#191C1D",
+  textAlign: "left",
 });

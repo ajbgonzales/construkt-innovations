@@ -10,12 +10,12 @@ const PageHeader: FC<PageHeaderProps> = ({ headerText, caption }) => {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "start" }}>
       <Typography
-        sx={{ fontFamily: "Work Sans", fontSize: "24px", fontWeight: 600 }}
+        sx={{ fontFamily: "Public Sans", fontSize: "24px", fontWeight: 600 }}
       >
         {headerText}
       </Typography>
       {caption && (
-        <Typography sx={{ fontFamily: "Work Sans" }}>{caption}</Typography>
+        <Typography sx={{ fontFamily: "Public Sans" }}>{caption}</Typography>
       )}
     </Box>
   );

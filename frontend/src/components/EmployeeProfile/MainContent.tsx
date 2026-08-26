@@ -73,6 +73,10 @@ const MainContent: FC<MainContentProps> = ({ employee }) => {
                 <Label>PHIC</Label>
                 <Value>&#8369; {employee.phic}</Value>
               </StyledGridItem>
+              <StyledGridItem size={4}>
+                <Label>Others</Label>
+                <Value>&#8369; {employee.others}</Value>
+              </StyledGridItem>
             </StyledGridContainer>
           </SectionContainer>
         </Container>

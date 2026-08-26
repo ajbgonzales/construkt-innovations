@@ -90,4 +90,11 @@ export const RATE_AND_BENEFITS_ITEMS: FormControl[] = [
     isRequired: true,
     type: "number",
   },
+  {
+    id: "others-number-field",
+    name: "others",
+    label: "Others",
+    isRequired: true,
+    type: "number",
+  },
 ];

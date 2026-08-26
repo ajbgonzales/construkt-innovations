@@ -31,6 +31,7 @@ class Employee(Base):
     sss: Mapped[float] = mapped_column(Numeric(10, 2))
     hdmf: Mapped[float] = mapped_column(Numeric(10, 2))
     phic: Mapped[float] = mapped_column(Numeric(10, 2))
+    others: Mapped[float] = mapped_column(Numeric(10, 2))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     @property

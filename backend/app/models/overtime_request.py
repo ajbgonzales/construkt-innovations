@@ -1,9 +1,10 @@
 import uuid
 from datetime import date, time
 
-from models.employee import EmployeeRead
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
+
+from models.employee import EmployeeRead
 
 
 class OvertimeRequestCreate(BaseModel):

@@ -17,6 +17,7 @@ class EmployeeAttendanceRecord(BaseModel):
     phic: float
     hdmf: float
     sss: float
+    others: float
     date: date
     work_hours: float
     overtime_hours: float
@@ -24,6 +25,12 @@ class EmployeeAttendanceRecord(BaseModel):
     is_overtime: bool
     is_flagged: Literal["Yes", "No"]
     notes: str | None = None
+    # Resolved DB identifiers for the matched employee, populated when the
+    # employee profile lookup succeeds. None when the employee_id/project
+    # pair has no matching Employee row, in which case the record can't be
+    # persisted to payroll tables.
+    employee_uuid: uuid.UUID | None = None
+    project_uuid: uuid.UUID | None = None
 
 
 class FilePayload(BaseModel):
