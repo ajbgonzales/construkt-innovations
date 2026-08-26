@@ -38,6 +38,6 @@ const StyledLink = styled(Link)({
 });
 
 const StyledTableCell = styled(TableCell)({
-  fontFamily: "Work Sans",
+  fontFamily: "Public Sans",
   background: "#FFF",
 });

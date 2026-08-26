@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta
 from io import BytesIO
 
@@ -6,12 +5,14 @@ import pandas as pd
 from models.attendance import EmployeeAttendanceRecord
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
+from orm.payroll_period import PayrollPeriod
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.constants import NON_DATE_COLUMNS
 from services.dataframe import get_loc_given_substring
 from services.dates import get_date_range, week_of_month
-from services.queries import get_employee_profile
+from services.payroll import persist_payroll_records
+from services.queries import get_employee_profile, get_holiday, get_work_hours_on_date
 from services.summary_formulas import (
     format_number_cells,
     get_manpower,
@@ -19,12 +20,26 @@ from services.summary_formulas import (
     get_project_totals_row,
     get_total_disbursement,
 )
-from services.time_logs import get_hours
+from services.time_logs import get_full_work_hours, get_hours
 from services.utils import (
     generate_filename,
     get_employee_attribute,
     get_work_week_dates,
 )
+
+
+def get_attendance_date_range(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, datetime, datetime]:
+    df = df.copy()
+    df.columns = [
+        f"col_{i}" if col.startswith("Unnamed") else col
+        for i, col in enumerate(df.columns, start=1)
+    ]
+
+    row, col = get_loc_given_substring(df, "Attendance date")
+    start_date, end_date = get_date_range(df.loc[row, col])
+    return df, start_date, end_date
 
 
 def _get_metadata(projects_metadata: dict):
@@ -46,7 +61,7 @@ def _get_metadata(projects_metadata: dict):
 
 async def clean_attendance_spreadsheet(
     df: pd.DataFrame, projects_metadata: dict, db: AsyncSession
-):
+) -> tuple[PayrollPeriod | None, BytesIO]:
     (
         project_name,
         start_time,
@@ -56,13 +71,7 @@ async def clean_attendance_spreadsheet(
         is_overtime,
     ) = _get_metadata(projects_metadata)
 
-    df.columns = [
-        f"col_{i}" if col.startswith("Unnamed") else col
-        for i, col in enumerate(df.columns, start=1)
-    ]
-
-    row, col = get_loc_given_substring(df, "Attendance date")
-    start_date, end_date = get_date_range(df.loc[row, col])
+    df, start_date, end_date = get_attendance_date_range(df)
     records = await _get_employee_records(
         df,
         project_name,
@@ -75,7 +84,9 @@ async def clean_attendance_spreadsheet(
         is_overtime,
         db,
     )
-    _create_cleaned_spreadsheet(records, project_name)
+    period = await persist_payroll_records(records, db)
+    spreadsheet = _create_cleaned_spreadsheet(records, project_name)
+    return period, spreadsheet
 
 
 async def _get_employee_records(
@@ -97,6 +108,7 @@ async def _get_employee_records(
         if row.col_4 == "User ID:" and isinstance(name, str):
             current = start_date
             col_num = 1
+            previous_work_hours: float | None = None
             while current <= end_date:
                 raw_employee_id = row.col_5
                 employee_id = (
@@ -106,19 +118,33 @@ async def _get_employee_records(
                     else str(raw_employee_id)
                 )
                 employee = await get_employee_profile(employee_id, project, db)
-                work_hours, overtime_hours, is_flagged, notes = await get_hours(
-                    rows=rows,
-                    index=i + 2,
-                    date=current,
-                    col_num=col_num,
-                    start_time=start_time,
-                    end_time=end_time,
-                    saturday_end_time=saturday_end_time,
-                    employee=employee,
-                    db=db,
-                    is_compressed_time=is_compressed_time,
-                    is_overtime=is_overtime,
-                )
+                if employee is None:
+                    work_hours = 0.0
+                    overtime_hours = 0.0
+                    is_flagged = "Yes"
+                    notes = "Employee profile not found."
+                elif await _worked_full_previous_day(
+                    employee, current, previous_work_hours, is_compressed_time, db
+                ):
+                    work_hours = get_full_work_hours(current, is_compressed_time)
+                    overtime_hours = 0.0
+                    is_flagged = "No"
+                    notes = None
+                else:
+                    work_hours, overtime_hours, is_flagged, notes = await get_hours(
+                        rows=rows,
+                        index=i + 2,
+                        date=current,
+                        col_num=col_num,
+                        start_time=start_time,
+                        end_time=end_time,
+                        saturday_end_time=saturday_end_time,
+                        employee=employee,
+                        db=db,
+                        is_compressed_time=is_compressed_time,
+                        is_overtime=is_overtime,
+                    )
+                previous_work_hours = work_hours
                 current_week = week_of_month(current)
                 record = EmployeeAttendanceRecord(
                     employee_id=employee_id,
@@ -130,6 +156,7 @@ async def _get_employee_records(
                     phic=employee.phic if employee and current_week == 3 else 0,
                     hdmf=employee.hdmf if employee and current_week == 3 else 0,
                     sss=employee.sss if employee and current_week == 1 else 0,
+                    others=employee.others if employee else 0,
                     date=current,
                     work_hours=work_hours,
                     overtime_hours=overtime_hours,
@@ -137,6 +164,8 @@ async def _get_employee_records(
                     is_overtime=is_overtime,
                     is_flagged=is_flagged,
                     notes=notes,
+                    employee_uuid=employee.id if employee else None,
+                    project_uuid=employee.project_id if employee else None,
                 )
                 records.append(record)
                 current += timedelta(days=1)
@@ -145,10 +174,33 @@ async def _get_employee_records(
     return records
 
 
+async def _worked_full_previous_day(
+    employee,
+    current: datetime,
+    previous_work_hours: float | None,
+    is_compressed_time: bool,
+    db: AsyncSession,
+) -> bool:
+    if await get_holiday(current.date(), db) is None:
+        return False
+
+    previous_date = (current - timedelta(days=1)).date()
+    if previous_work_hours is None:
+        # No prior day processed in this batch (current is the first day of
+        # the period): fall back to the previously persisted attendance day.
+        previous_work_hours = await get_work_hours_on_date(
+            employee.id, previous_date, db
+        )
+        if previous_work_hours is None:
+            return False
+
+    return previous_work_hours >= get_full_work_hours(previous_date, is_compressed_time)
+
+
 def _create_cleaned_spreadsheet(
     records: list[EmployeeAttendanceRecord],
     project_name: str,
-):
+) -> BytesIO:
     cleaned_dict = _create_cleaned_dict(records)
 
     # Convert cleaned_dict to data frame
@@ -161,6 +213,7 @@ def _create_cleaned_spreadsheet(
         "Rate",
         "Allowance",
         "PHIC",
+        "Others",
         "HDMF",
         "SSS",
     ]:
@@ -170,15 +223,13 @@ def _create_cleaned_spreadsheet(
     # Total Work Hours is populated as an Excel SUM formula below, once the
     # sheet exists and date columns can be located by header.
 
-    os.makedirs("./app/records", exist_ok=True)
-
-    output_path = f"./app/records/{project_name}.xlsx"
-
-    # Convert data frame to excel
-    cleaned_df.to_excel(output_path, sheet_name=f"{project_name}", index=False)
+    # Convert data frame to excel, in memory
+    intermediate = BytesIO()
+    cleaned_df.to_excel(intermediate, sheet_name=f"{project_name}", index=False)
+    intermediate.seek(0)
 
     # Add Gross Amount and Net Amount formula columns via openpyxl
-    wb = load_workbook(output_path)
+    wb = load_workbook(intermediate)
     ws = wb[project_name]
 
     headers = [cell.value for cell in ws[1]]
@@ -193,6 +244,7 @@ def _create_cleaned_spreadsheet(
         rate_letter,
         allowance_letter,
         phic_letter,
+        others_letter,
         hdmf_letter,
         sss_letter,
         twh_letter,
@@ -216,7 +268,8 @@ def _create_cleaned_spreadsheet(
             f"ROUND({gross_letter}{row_idx}"
             f"-{phic_letter}{row_idx}"
             f"-{hdmf_letter}{row_idx}"
-            f"-{sss_letter}{row_idx},2)"
+            f"-{sss_letter}{row_idx}"
+            f"-{others_letter}{row_idx},2)"
         )
         net_formula = f"=IF({net_amount_formula}>0,{net_amount_formula},0)"
         gross_cell = ws.cell(row=row_idx, column=gross_col, value=gross_formula)
@@ -224,17 +277,20 @@ def _create_cleaned_spreadsheet(
         net_cell = ws.cell(row=row_idx, column=net_col, value=net_formula)
         net_cell.number_format = "#,##0.00"
 
-    wb.save(output_path)
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
 
 
-def compile_spreadsheets(file_paths: list[str], buffer: BytesIO):
+def compile_spreadsheets(spreadsheets: list[BytesIO], buffer: BytesIO):
     workbook = Workbook()
     workbook.remove(workbook.active)
     summary_dict = {}
     work_week_dates = None
 
-    for path in file_paths:
-        wb = load_workbook(path)
+    for spreadsheet in spreadsheets:
+        wb = load_workbook(spreadsheet)
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
             new_ws = workbook.create_sheet(title=sheet_name)
@@ -255,6 +311,7 @@ def compile_spreadsheets(file_paths: list[str], buffer: BytesIO):
                 "Rate",
                 "Allowance",
                 "PHIC",
+                "Others",
                 "HDMF",
                 "SSS",
                 "Gross Amount",
@@ -285,6 +342,7 @@ def _create_cleaned_dict(records: list[EmployeeAttendanceRecord]):
                 "Rate": r.rate,
                 "Allowance": r.allowance,
                 "PHIC": r.phic,
+                "Others": r.others,
                 "HDMF": r.hdmf,
                 "SSS": r.sss,
             }
@@ -293,10 +351,11 @@ def _create_cleaned_dict(records: list[EmployeeAttendanceRecord]):
             cleaned_dict[r.employee_id]["Is Flagged"] = r.is_flagged
         # Add notes
         if r.notes:
-            if cleaned_dict[r.employee_id]["Notes"]:
-                cleaned_dict[r.employee_id]["Notes"] += f"\n{r.notes}"
-            else:
+            existing_notes = cleaned_dict[r.employee_id]["Notes"]
+            if not existing_notes:
                 cleaned_dict[r.employee_id]["Notes"] = r.notes
+            elif r.notes not in existing_notes.split("\n"):
+                cleaned_dict[r.employee_id]["Notes"] += f"\n{r.notes}"
         # Add work hours and overtime hours
         cleaned_dict[r.employee_id][r.date.strftime("%Y-%m-%d")] = r.work_hours
         cleaned_dict[r.employee_id]["Overtime"] += r.overtime_hours
@@ -308,6 +367,7 @@ def _get_column_letters(columns):
     rate_letter = get_column_letter(columns["Rate"])
     allowance_letter = get_column_letter(columns["Allowance"])
     phic_letter = get_column_letter(columns["PHIC"])
+    others_letter = get_column_letter(columns["Others"])
     hdmf_letter = get_column_letter(columns["HDMF"])
     sss_letter = get_column_letter(columns["SSS"])
     twh_letter = get_column_letter(columns["Total Work Hours"])
@@ -317,6 +377,7 @@ def _get_column_letters(columns):
         rate_letter,
         allowance_letter,
         phic_letter,
+        others_letter,
         hdmf_letter,
         sss_letter,
         twh_letter,

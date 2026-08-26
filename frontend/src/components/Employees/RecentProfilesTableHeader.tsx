@@ -10,7 +10,7 @@ const RecentProfilesTableHeader = () => {
             sx={{
               fontSize: "1.25rem",
               fontWeight: 600,
-              fontFamily: "Work Sans",
+              fontFamily: "Public Sans",
             }}
           >
             Recent Employee Profiles
@@ -34,7 +34,7 @@ const RecentProfilesTableHeader = () => {
 export default RecentProfilesTableHeader;
 
 const StyledTableCell = styled(TableCell)({
-  fontFamily: "Work Sans",
+  fontFamily: "Public Sans",
   fontWeight: 800,
   textTransform: "uppercase",
 });

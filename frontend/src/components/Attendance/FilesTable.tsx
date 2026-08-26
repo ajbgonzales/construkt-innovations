@@ -2,13 +2,19 @@ import api from "@/api/base";
 import useAttendanceStore, {
   type ProjectMetadata,
 } from "@/store/useAttendanceStore";
+import { getBlobErrorDetail } from "@/utils/parseErrorBlob";
 import { useMutation } from "@tanstack/react-query";
-import { Box, Typography } from "@mui/material";
+import { Alert, Box, Snackbar, Typography } from "@mui/material";
+import { isAxiosError } from "axios";
+import { useState } from "react";
 import FileRow from "./FileRow";
 import { StyledButton } from "./styles";
 
+const FALLBACK_ERROR_MESSAGE = "Failed to process files. Please try again.";
+
 const FilesTable = () => {
   const { files, values } = useAttendanceStore();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isProcessFilesDisabled = () => {
     return Object.values(values).some((v) => {
@@ -34,8 +40,12 @@ const FilesTable = () => {
       a.click();
       URL.revokeObjectURL(url);
     },
-    onError: (error) => {
+    onError: async (error) => {
       console.error("failed:", error);
+      const message = isAxiosError(error)
+        ? await getBlobErrorDetail(error, FALLBACK_ERROR_MESSAGE)
+        : FALLBACK_ERROR_MESSAGE;
+      setErrorMessage(message);
     },
   });
 
@@ -82,6 +92,15 @@ const FilesTable = () => {
       >
         {isPending ? "Processing..." : "Process Files"}
       </StyledButton>
+      <Snackbar
+        open={!!errorMessage}
+        autoHideDuration={6000}
+        onClose={() => setErrorMessage(null)}
+      >
+        <Alert severity="error" onClose={() => setErrorMessage(null)}>
+          {errorMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

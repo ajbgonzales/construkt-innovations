@@ -28,6 +28,7 @@ export const addNewEmployeeSchema = z.object({
   sss: requiredNumberField("SSS"),
   hdmf: requiredNumberField("HDMF"),
   phic: requiredNumberField("PHIC"),
+  others: requiredNumberField("Others"),
 });
 
 export type AddNewEmployeeFormValues = z.infer<typeof addNewEmployeeSchema>;

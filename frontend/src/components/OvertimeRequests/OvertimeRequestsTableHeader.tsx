@@ -10,7 +10,7 @@ const OvertimeRequestsTableHeader = () => {
             sx={{
               fontSize: "1.25rem",
               fontWeight: 600,
-              fontFamily: "Work Sans",
+              fontFamily: "Public Sans",
             }}
           >
             Recent Overtime Requests
@@ -35,7 +35,7 @@ const OvertimeRequestsTableHeader = () => {
 export default OvertimeRequestsTableHeader;
 
 const StyledTableCell = styled(TableCell)({
-  fontFamily: "Work Sans",
+  fontFamily: "Public Sans",
   fontWeight: 800,
   textTransform: "uppercase",
 });

@@ -9,6 +9,8 @@ import {
   OvertimeRequestEdit,
   OvertimeRequestPage,
   OvertimeRequests,
+  PayrollPeriodPage,
+  PayslipGenerator,
 } from "@/pages";
 
 const AppRoutes = () => {
@@ -26,6 +28,8 @@ const AppRoutes = () => {
         path="/overtime-requests/:id/edit"
         element={<OvertimeRequestEdit />}
       />
+      <Route path="/payslip-generator" element={<PayslipGenerator />} />
+      <Route path="/payroll-periods/:id" element={<PayrollPeriodPage />} />
     </Routes>
   );
 };

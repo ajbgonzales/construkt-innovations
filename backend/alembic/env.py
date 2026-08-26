@@ -15,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from db import Base
-from orm.employee import Employee  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
