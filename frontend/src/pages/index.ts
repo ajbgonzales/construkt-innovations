@@ -8,6 +8,8 @@ import NewOvertimeRequest from "./NewOvertimeRequest";
 import OvertimeRequestEdit from "./OvertimeRequestEdit";
 import OvertimeRequestPage from "./OvertimeRequestPage";
 import OvertimeRequests from "./OvertimeRequests";
+import PayrollPeriodPage from "./PayrollPeriodPage";
+import PayslipGenerator from "./PayslipGenerator";
 
 export {
   AddNewEmployee,
@@ -20,4 +22,6 @@ export {
   OvertimeRequestEdit,
   OvertimeRequestPage,
   OvertimeRequests,
+  PayrollPeriodPage,
+  PayslipGenerator,
 };

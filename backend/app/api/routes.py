@@ -1,10 +1,12 @@
 import io
 import json
+import os
 import uuid
+from datetime import datetime, timezone
 
 import pandas as pd
 from db import get_db
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from models.attendance import FilePayload
 from models.employee import (
@@ -13,19 +15,37 @@ from models.employee import (
     EmployeeImportSummary,
     EmployeeRead,
 )
+from models.holiday import HolidayCreate, HolidayRead
 from models.overtime_request import OvertimeRequestCreate, OvertimeRequestRead
+from models.payroll import (
+    PayrollPeriodDetailRead,
+    PayrollPeriodRead,
+    PayslipRead,
+    SendPayslipsResult,
+)
 from models.project import ProjectCreate, ProjectRead
 from orm.employee import Employee
+from orm.holiday import Holiday
 from orm.overtime_request import OvertimeRequest
+from orm.payroll_period import PayrollPeriod
+from orm.payslip import Payslip
 from orm.project import Project
 from pydantic import ValidationError
+from services.payroll import (
+    delete_payroll_records_outside_projects,
+    generate_payslips_for_period,
+)
+from services.payslip_email import send_payslip_email
+from services.payslip_pdf import render_payslip_pdf
 from services.spreadsheet_processor import (
     clean_attendance_spreadsheet,
     compile_spreadsheets,
+    get_attendance_date_range,
 )
-from sqlalchemy import select, tuple_
+from sqlalchemy import func, select, text, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
@@ -39,8 +59,9 @@ EMPLOYEE_IMPORT_REQUIRED_COLUMNS = {
     "sss",
     "hdmf",
     "phic",
+    "others",
 }
-EMPLOYEE_IMPORT_NUMERIC_COLUMNS = ["rate", "allowance", "sss", "hdmf", "phic"]
+EMPLOYEE_IMPORT_NUMERIC_COLUMNS = ["rate", "allowance", "sss", "hdmf", "phic", "others"]
 EMPLOYEE_IMPORT_STRING_COLUMNS = [
     "full_name",
     "email_address",
@@ -397,23 +418,273 @@ async def process_attendance_records(
         key: FilePayload(**value).model_dump() for key, value in metadata.items()
     }
 
+    parsed_files = []
+    date_ranges = set()
     for file in files:
         df = pd.read_excel(file.file)
         df = df.dropna(how="all").dropna(axis=1, how="all")
-        await clean_attendance_spreadsheet(
-            df, parsed_projects_metadata[file.filename], db
+        _, start_date, end_date = get_attendance_date_range(df)
+        date_ranges.add((start_date, end_date))
+        parsed_files.append((file, df))
+
+    if len(date_ranges) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="All attendance files must cover the same date range.",
         )
 
-    file_paths = []
-    file_paths.extend(
-        f"app/records/{value['project_name']}.xlsx"
-        for value in parsed_projects_metadata.values()
-    )
+    period = None
+    spreadsheets = []
+    for file, df in parsed_files:
+        file_period, spreadsheet = await clean_attendance_spreadsheet(
+            df, parsed_projects_metadata[file.filename], db
+        )
+        period = file_period or period
+        spreadsheets.append(spreadsheet)
+
+    if period is not None:
+        # This batch is expected to contain every project for the period,
+        # so drop any records left over from projects not in it.
+        processed_project_names = {
+            value["project_name"].lower() for value in parsed_projects_metadata.values()
+        }
+        result = await db.execute(
+            select(Project.id).where(
+                func.lower(Project.name).in_(processed_project_names)
+            )
+        )
+        processed_project_ids = set(result.scalars().all())
+        await delete_payroll_records_outside_projects(
+            period.id, processed_project_ids, db
+        )
+
+    await db.commit()
 
     buffer = io.BytesIO()
-    filename = compile_spreadsheets(file_paths, buffer)
+    filename = compile_spreadsheets(spreadsheets, buffer)
+
+    if period is not None:
+        period.spreadsheet = buffer.getvalue()
+        period.spreadsheet_filename = f"{filename}.xlsx"
+        await db.commit()
+
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/holidays", response_model=list[HolidayRead])
+async def list_holidays(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Holiday).order_by(Holiday.date))
+    return result.scalars().all()
+
+
+@router.post("/holidays", response_model=HolidayRead, status_code=201)
+async def create_holiday(payload: HolidayCreate, db: AsyncSession = Depends(get_db)):
+    existing = await db.execute(select(Holiday).where(Holiday.date == payload.date))
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=409, detail="A holiday already exists for this date"
+        )
+    holiday = Holiday(**payload.model_dump())
+    db.add(holiday)
+    await db.commit()
+    await db.refresh(holiday)
+    return holiday
+
+
+@router.delete("/holidays/{id}", status_code=204)
+async def delete_holiday(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    holiday = await db.get(Holiday, id)
+    if holiday is None:
+        raise HTTPException(status_code=404, detail="Holiday not found.")
+
+    await db.delete(holiday)
+    await db.commit()
+
+
+@router.get("/payroll-periods", response_model=list[PayrollPeriodRead])
+async def list_payroll_periods(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(PayrollPeriod).order_by(PayrollPeriod.start_date.desc())
+    )
+    return result.scalars().all()
+
+
+@router.get("/payroll-periods/{id}", response_model=PayrollPeriodDetailRead)
+async def get_payroll_period(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(PayrollPeriod)
+        .options(selectinload(PayrollPeriod.payroll_records))
+        .where(PayrollPeriod.id == id)
+    )
+    period = result.scalar_one_or_none()
+    if period is None:
+        raise HTTPException(status_code=404, detail="Payroll period not found.")
+    return period
+
+
+@router.get("/payroll-periods/{id}/spreadsheet")
+async def download_payroll_spreadsheet(
+    id: uuid.UUID, db: AsyncSession = Depends(get_db)
+):
+    period = await db.get(PayrollPeriod, id)
+    if period is None:
+        raise HTTPException(status_code=404, detail="Payroll period not found.")
+
+    if period.spreadsheet is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No spreadsheet has been generated for this payroll period yet.",
+        )
+
+    # Strip the .xlsx we append for storage so the downloaded filename
+    # matches exactly what processing produces. Content-Disposition is set
+    # explicitly (rather than via a filename= kwarg) to match
+    # process_attendance_records' plain-quoted header style, since Starlette
+    # switches to RFC 5987 encoding for filenames containing spaces, which
+    # the frontend's Content-Disposition parser doesn't handle.
+    filename = os.path.splitext(period.spreadsheet_filename)[0]
+    return StreamingResponse(
+        io.BytesIO(period.spreadsheet),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/payroll-periods/{id}/payslips", response_model=list[PayslipRead])
+async def generate_payslips(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(PayrollPeriod)
+        .options(selectinload(PayrollPeriod.payroll_records))
+        .where(PayrollPeriod.id == id)
+    )
+    period = result.scalar_one_or_none()
+    if period is None:
+        raise HTTPException(status_code=404, detail="Payroll period not found.")
+
+    payslips = await generate_payslips_for_period(period, db)
+    await db.commit()
+    for payslip in payslips:
+        await db.refresh(payslip)
+    return payslips
+
+
+@router.get("/payroll-periods/{id}/payslips", response_model=list[PayslipRead])
+async def list_payslips(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Payslip)
+        .where(Payslip.payroll_period_id == id)
+        .order_by(Payslip.generated_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.get("/payroll-periods/{id}/payslips/{payslip_id}/pdf")
+async def download_payslip_pdf(
+    id: uuid.UUID, payslip_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+):
+    period = await db.get(PayrollPeriod, id)
+    if period is None:
+        raise HTTPException(status_code=404, detail="Payroll period not found.")
+
+    payslip = await db.get(Payslip, payslip_id)
+    if payslip is None or payslip.payroll_period_id != id:
+        raise HTTPException(status_code=404, detail="Payslip not found.")
+
+    pdf_bytes = await render_payslip_pdf(payslip, period, db)
+    filename = f"Payslip - {payslip.employee_full_name} - {period.start_date} to {period.end_date}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+async def _send_one_payslip(
+    payslip: Payslip, period: PayrollPeriod, db: AsyncSession
+) -> None:
+    pdf_bytes = await render_payslip_pdf(payslip, period, db)
+    await send_payslip_email(
+        to_email=payslip.employee_ref.email_address,
+        employee_name=payslip.employee_full_name,
+        period_start=period.start_date.strftime("%B %d, %Y"),
+        period_end=period.end_date.strftime("%B %d, %Y"),
+        pdf_bytes=pdf_bytes,
+    )
+    # Raw SQL so this doesn't also bump generated_at, which has its own
+    # onupdate=func.now() that fires on any ORM-tracked write to the row.
+    await db.execute(
+        text("UPDATE payslips SET sent_at = :sent_at WHERE id = :id"),
+        {"sent_at": datetime.now(timezone.utc).replace(tzinfo=None), "id": payslip.id},
+    )
+
+
+@router.post(
+    "/payroll-periods/{id}/payslips/{payslip_id}/send", response_model=PayslipRead
+)
+async def send_payslip(
+    id: uuid.UUID, payslip_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+):
+    period = await db.get(PayrollPeriod, id)
+    if period is None:
+        raise HTTPException(status_code=404, detail="Payroll period not found.")
+
+    payslip = await db.get(Payslip, payslip_id)
+    if payslip is None or payslip.payroll_period_id != id:
+        raise HTTPException(status_code=404, detail="Payslip not found.")
+
+    if not payslip.employee_ref.email_address:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{payslip.employee_full_name} has no email address on file.",
+        )
+
+    try:
+        await _send_one_payslip(payslip, period, db)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=502, detail=f"Failed to send email: {e}"
+        ) from e
+
+    await db.commit()
+    await db.refresh(payslip)
+    return payslip
+
+
+@router.post("/payroll-periods/{id}/payslips/send", response_model=SendPayslipsResult)
+async def send_payslips(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    period = await db.get(PayrollPeriod, id)
+    if period is None:
+        raise HTTPException(status_code=404, detail="Payroll period not found.")
+
+    result = await db.execute(select(Payslip).where(Payslip.payroll_period_id == id))
+    payslips = result.scalars().all()
+    if not payslips:
+        raise HTTPException(
+            status_code=400,
+            detail="No payslips have been generated for this period yet.",
+        )
+
+    sent: list[str] = []
+    skipped: list[str] = []
+    failed: list[str] = []
+
+    for payslip in payslips:
+        if not payslip.employee_ref.email_address:
+            skipped.append(payslip.employee_full_name)
+            continue
+
+        try:
+            await _send_one_payslip(payslip, period, db)
+        except Exception as e:
+            failed.append(f"{payslip.employee_full_name}: {e}")
+            continue
+
+        sent.append(payslip.employee_full_name)
+
+    await db.commit()
+    return SendPayslipsResult(sent=sent, skipped=skipped, failed=failed)

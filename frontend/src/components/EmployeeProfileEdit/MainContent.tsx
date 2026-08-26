@@ -54,6 +54,7 @@ const MainContent: FC<MainContentProps> = ({ employee }) => {
       sss: employee.sss.toString(),
       hdmf: employee.hdmf.toString(),
       phic: employee.phic.toString(),
+      others: employee.others.toString(),
     },
   });
 

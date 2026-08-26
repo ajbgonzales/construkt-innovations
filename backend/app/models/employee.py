@@ -19,6 +19,7 @@ class EmployeeCreate(BaseModel):
     sss: float = Field(ge=0)
     hdmf: float = Field(ge=0)
     phic: float = Field(ge=0)
+    others: float = Field(ge=0)
 
 
 class EmployeeRead(EmployeeCreate):

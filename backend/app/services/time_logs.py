@@ -182,6 +182,12 @@ def _get_time_out(date, end_time, time_obj_arr, is_overtime):
         return datetime.combine(date, time_obj_arr[1])
 
 
+def get_full_work_hours(date: datetime, is_compressed_time: bool) -> float:
+    if date.weekday() == 5:
+        return 5.5
+    return 8.5 if is_compressed_time else 8
+
+
 # TODO: get accurate computation for overtime considering overtime requests
 # employees can time out before consuming all of overtime hours.
 # This function temporarily returns 0 for overtime hours
@@ -196,14 +202,13 @@ async def _get_work_hours(
     is_compressed_time,
     is_overtime,
 ):
+    total_work_hours = get_full_work_hours(date, is_compressed_time)
     if date.weekday() == 5:
-        total_work_hours = 5.5
         break_seconds = 1800
         end_time_obj = datetime.combine(
             date, datetime.strptime(saturday_end_time, "%H:%M").time()
         )
     else:
-        total_work_hours = 8.5 if is_compressed_time else 8
         break_seconds = 1800 if is_compressed_time else 3600
         end_time_obj = datetime.combine(
             date, datetime.strptime(end_time, "%H:%M").time()

@@ -49,6 +49,7 @@ const Form = () => {
       sss: "0",
       hdmf: "0",
       phic: "0",
+      others: "0",
     },
   });
 

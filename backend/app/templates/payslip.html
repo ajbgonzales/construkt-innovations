@@ -1,0 +1,253 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @page {
+        size: A4;
+        margin: 2cm;
+      }
+      body {
+        font-family:
+          "Helvetica Neue", Helvetica, Arial, "Noto Sans", sans-serif;
+        color: #191c1d;
+        font-size: 11pt;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #058250;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+      }
+      .company-name {
+        font-size: 16pt;
+        font-weight: 700;
+        color: #191c1d;
+      }
+      .payslip-title {
+        text-align: right;
+        font-size: 14pt;
+        font-weight: 700;
+        color: #058250;
+        text-transform: uppercase;
+      }
+      .period {
+        text-align: right;
+        font-size: 10pt;
+        color: #564337;
+      }
+      .employee-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      .employee-info div {
+        width: 48%;
+      }
+      .label {
+        text-transform: uppercase;
+        font-size: 8pt;
+        font-weight: 700;
+        color: #897365;
+        margin-bottom: 2px;
+      }
+      .value {
+        font-size: 11pt;
+        margin-bottom: 10px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 16px;
+      }
+      th {
+        text-align: left;
+        text-transform: uppercase;
+        font-size: 8pt;
+        font-weight: 700;
+        color: #897365;
+        background: #f8f9fa;
+        border-bottom: 1px solid #004126;
+        padding: 8px 10px;
+      }
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #eee;
+      }
+      td.amount,
+      th.amount {
+        text-align: right;
+      }
+      .net-pay {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f3f4f5;
+        border: 1px solid #004126;
+        padding: 14px 16px;
+        margin-top: 8px;
+      }
+      .net-pay .label {
+        font-size: 11pt;
+        color: #191c1d;
+        margin: 0;
+      }
+      .net-pay .amount {
+        font-size: 16pt;
+        font-weight: 700;
+        color: #058250;
+      }
+      .holiday-note {
+        margin-top: 12px;
+        font-size: 9pt;
+        color: #564337;
+      }
+      .approval {
+        margin-top: 40px;
+        width: 220px;
+        text-align: center;
+      }
+      .signature-line {
+        height: 62.5px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        border-bottom: 1px solid #191c1d;
+      }
+      .signature-image {
+        max-height: 62.5px;
+        max-width: 100%;
+        object-fit: contain;
+      }
+      .approver-name {
+        margin-top: 6px;
+        font-size: 11pt;
+        font-weight: 700;
+        color: #191c1d;
+      }
+      .approval .label {
+        margin-bottom: 0;
+      }
+      .footer {
+        margin-top: 30px;
+        font-size: 8pt;
+        color: #897365;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="company-name">Construkt Innovations, Inc.</div>
+      <div>
+        <div class="payslip-title">Payslip</div>
+        <div class="period">
+          {{ period.start_date.strftime("%B %d, %Y") }} &ndash; {{
+          period.end_date.strftime("%B %d, %Y") }}
+        </div>
+      </div>
+    </div>
+
+    <div class="employee-info">
+      <div>
+        <div class="label">Employee Name</div>
+        <div class="value">{{ payslip.employee_full_name }}</div>
+        <div class="label">Employee ID</div>
+        <div class="value">{{ payslip.employee_ref.employee_id }}</div>
+      </div>
+      <div>
+        <div class="label">Project</div>
+        <div class="value">{{ payslip.project_name }}</div>
+        <div class="label">Position</div>
+        <div class="value">{{ payslip.employee_ref.position }}</div>
+      </div>
+    </div>
+
+    <div class="label">Hours Worked</div>
+    <div class="value">
+      {{ payslip.total_work_hours }} regular hrs, {{ payslip.overtime_hours }}
+      overtime hrs
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Earnings</th>
+          <th class="amount">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Rate</td>
+          <td class="amount">{{ "₱%.2f"|format(payslip.rate) }}</td>
+        </tr>
+        <tr>
+          <td>Allowance</td>
+          <td class="amount">{{ "₱%.2f"|format(payslip.allowance) }}</td>
+        </tr>
+        <tr>
+          <td><strong>Gross Amount</strong></td>
+          <td class="amount">
+            <strong>{{ "₱%.2f"|format(payslip.gross_amount) }}</strong>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Deductions</th>
+          <th class="amount">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>SSS</td>
+          <td class="amount">{{ "₱%.2f"|format(payslip.sss) }}</td>
+        </tr>
+        <tr>
+          <td>HDMF (Pag-IBIG)</td>
+          <td class="amount">{{ "₱%.2f"|format(payslip.hdmf) }}</td>
+        </tr>
+        <tr>
+          <td>PHIC (PhilHealth)</td>
+          <td class="amount">{{ "₱%.2f"|format(payslip.phic) }}</td>
+        </tr>
+        <tr>
+          <td>Others</td>
+          <td class="amount">{{ "₱%.2f"|format(payslip.others) }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="net-pay">
+      <div class="label">Net Pay</div>
+      <div class="amount">{{ "₱%.2f"|format(payslip.net_amount) }}</div>
+    </div>
+
+    {% if payslip.is_holiday_pay_eligible is not none %}
+    <div class="holiday-note">
+      {% if payslip.is_holiday_pay_eligible %} Eligible for holiday pay on {{
+      payslip.holiday_date.strftime("%B %d, %Y") }}. {% else %} Not eligible for
+      holiday pay on {{ payslip.holiday_date.strftime("%B %d, %Y") }} (did not
+      work the required day before). {% endif %}
+    </div>
+    {% endif %} {% if approver %}
+    <div class="approval">
+      <div class="signature-line">
+        {% if signature_data_uri %}
+        <img class="signature-image" src="{{ signature_data_uri }}" alt="" />
+        {% endif %}
+      </div>
+      <div class="approver-name">{{ approver.name }}</div>
+      <div class="label">Approved by</div>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+      Generated {{ generated_at_local.strftime("%B %d, %Y at %I:%M %p") }}
+    </div>
+  </body>
+</html>
