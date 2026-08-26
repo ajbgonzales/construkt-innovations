@@ -213,9 +213,9 @@ def _create_cleaned_spreadsheet(
         "Rate",
         "Allowance",
         "PHIC",
-        "Others",
         "HDMF",
         "SSS",
+        "Others",
     ]:
         col_data = cleaned_df.pop(col_name)
         cleaned_df[col_name] = col_data
