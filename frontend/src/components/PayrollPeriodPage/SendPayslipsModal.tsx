@@ -27,7 +27,8 @@ const SendPayslipsModal: FC<SendPayslipsModalProps> = ({
             <Typography sx={{ fontWeight: 800 }}>Send Payslips</Typography>
             <Typography>
               This will email a payslip PDF to every employee in this period who
-              has an email address on file. This cannot be undone. Send now?
+              has an email address on file and hasn&apos;t already been sent
+              one. This cannot be undone. Send now?
             </Typography>
             {errorMessage && (
               <FormHelperText error>{errorMessage}</FormHelperText>

@@ -669,11 +669,13 @@ async def send_payslips(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
             detail="No payslips have been generated for this period yet.",
         )
 
+    pending_payslips = [p for p in payslips if p.sent_at is None]
+
     sent: list[str] = []
     skipped: list[str] = []
     failed: list[str] = []
 
-    for payslip in payslips:
+    for payslip in pending_payslips:
         if not payslip.employee_ref.email_address:
             skipped.append(payslip.employee_full_name)
             continue
