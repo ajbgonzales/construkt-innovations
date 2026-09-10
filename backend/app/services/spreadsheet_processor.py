@@ -103,6 +103,7 @@ async def _get_employee_records(
 ):
     records: list[EmployeeAttendanceRecord] = []
     rows = list(df.itertuples(index=False))
+    current_week = week_of_month(start_date, end_date)
     for i, row in enumerate(rows[:-1]):
         name = get_employee_attribute(df, rows, i, "Name:")
         if row.col_4 == "User ID:" and isinstance(name, str):
@@ -145,7 +146,6 @@ async def _get_employee_records(
                         is_overtime=is_overtime,
                     )
                 previous_work_hours = work_hours
-                current_week = week_of_month(current)
                 record = EmployeeAttendanceRecord(
                     employee_id=employee_id,
                     employee_full_name=name,
