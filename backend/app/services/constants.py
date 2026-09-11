@@ -7,6 +7,7 @@ NON_DATE_COLUMNS = {
     "Notes",
     "Total Work Hours",
     "Overtime",
+    "Holiday Premium",
     "Rate",
     "Allowance",
     "PHIC",

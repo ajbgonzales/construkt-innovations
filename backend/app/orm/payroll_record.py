@@ -37,6 +37,7 @@ class PayrollRecord(Base):
 
     total_work_hours: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     overtime_hours: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
+    holiday_premium_pay: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     rate: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     allowance: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     sss: Mapped[float] = mapped_column(Numeric(10, 2), default=0)

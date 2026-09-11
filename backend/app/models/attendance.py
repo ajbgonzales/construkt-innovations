@@ -21,6 +21,7 @@ class EmployeeAttendanceRecord(BaseModel):
     date: date
     work_hours: float
     overtime_hours: float
+    holiday_premium_pay: float = 0.0
     is_compressed_time: bool
     is_overtime: bool
     is_flagged: Literal["Yes", "No"]
@@ -39,6 +40,7 @@ class FilePayload(BaseModel):
     project_name: str
     start_time: str
     end_time: str
+    include_saturday: bool
     saturday_end_time: str
     is_compressed: bool
     is_overtime: bool

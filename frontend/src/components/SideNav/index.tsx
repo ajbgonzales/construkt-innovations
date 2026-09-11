@@ -1,5 +1,6 @@
 import AppLogo from "@/assets/app-logo.svg?react";
 import AppName from "@/assets/app-name.svg?react";
+import BeachAccessIcon from "@mui/icons-material/BeachAccess";
 import MoreTimeIcon from "@mui/icons-material/MoreTime";
 import PeopleIcon from "@mui/icons-material/People";
 import PunchClockIcon from "@mui/icons-material/PunchClock";
@@ -22,7 +23,9 @@ const SideNav = () => {
       : location.pathname.startsWith("/payslip-generator") ||
           location.pathname.startsWith("/payroll-periods")
         ? "payslipGenerator"
-        : "attendance";
+        : location.pathname.startsWith("/holidays")
+          ? "holidays"
+          : "attendance";
 
   const handleChange = (
     _event: React.SyntheticEvent,
@@ -30,7 +33,8 @@ const SideNav = () => {
       | "attendance"
       | "employees"
       | "overtimeRequest"
-      | "payslipGenerator",
+      | "payslipGenerator"
+      | "holidays",
   ) => {
     navigate(
       newValue === "attendance"
@@ -39,7 +43,9 @@ const SideNav = () => {
           ? "/employees"
           : newValue === "payslipGenerator"
             ? "/payslip-generator"
-            : "/overtime-requests",
+            : newValue === "holidays"
+              ? "/holidays"
+              : "/overtime-requests",
     );
   };
 
@@ -100,6 +106,12 @@ const SideNav = () => {
             iconPosition="start"
             label="Payslip Generator"
             value="payslipGenerator"
+          />
+          <StyledTab
+            icon={<BeachAccessIcon />}
+            iconPosition="start"
+            label="Holidays"
+            value="holidays"
           />
         </Tabs>
       </Box>

@@ -495,6 +495,28 @@ async def create_holiday(payload: HolidayCreate, db: AsyncSession = Depends(get_
     return holiday
 
 
+@router.put("/holidays/{id}", response_model=HolidayRead)
+async def update_holiday(
+    id: uuid.UUID, payload: HolidayCreate, db: AsyncSession = Depends(get_db)
+):
+    holiday = await db.get(Holiday, id)
+    if holiday is None:
+        raise HTTPException(status_code=404, detail="Holiday not found.")
+
+    for field, value in payload.model_dump().items():
+        setattr(holiday, field, value)
+
+    try:
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409, detail="A holiday already exists for this date"
+        ) from e
+    await db.refresh(holiday)
+    return holiday
+
+
 @router.delete("/holidays/{id}", status_code=204)
 async def delete_holiday(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     holiday = await db.get(Holiday, id)
