@@ -5,6 +5,7 @@ import {
   EmployeeProfile,
   EmployeeProfileEdit,
   Employees,
+  Holidays,
   NewOvertimeRequest,
   OvertimeRequestEdit,
   OvertimeRequestPage,
@@ -30,6 +31,7 @@ const AppRoutes = () => {
       />
       <Route path="/payslip-generator" element={<PayslipGenerator />} />
       <Route path="/payroll-periods/:id" element={<PayrollPeriodPage />} />
+      <Route path="/holidays" element={<Holidays />} />
     </Routes>
   );
 };

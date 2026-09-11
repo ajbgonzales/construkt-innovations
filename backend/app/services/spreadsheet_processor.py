@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from io import BytesIO
 
 import pandas as pd
 from models.attendance import EmployeeAttendanceRecord
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
+from orm.holiday import HolidayType
 from orm.payroll_period import PayrollPeriod
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,12 +21,23 @@ from services.summary_formulas import (
     get_project_totals_row,
     get_total_disbursement,
 )
-from services.time_logs import get_full_work_hours, get_hours
+from services.time_logs import get_hours
 from services.utils import (
     generate_filename,
     get_employee_attribute,
     get_work_week_dates,
 )
+
+# Regular Holiday: absent employees are credited a flat 8 hours if they
+# worked at least this many hours the previous work day (regardless of
+# whether the holiday falls on a Saturday, which would otherwise only earn
+# a half day). Employees who do work a holiday earn their normal hours plus
+# a premium on top, scaled by holiday type; Special Non-Working employees
+# who don't work earn nothing ("no work, no pay").
+REGULAR_HOLIDAY_MIN_PREVIOUS_DAY_HOURS = 6.0
+REGULAR_HOLIDAY_CREDIT_HOURS = 8.0
+REGULAR_HOLIDAY_PREMIUM_RATE = 1.0
+SPECIAL_NON_WORKING_HOLIDAY_PREMIUM_RATE = 0.3
 
 
 def get_attendance_date_range(
@@ -46,6 +58,7 @@ def _get_metadata(projects_metadata: dict):
     project_name = projects_metadata["project_name"]
     start_time = projects_metadata["start_time"]
     end_time = projects_metadata["end_time"]
+    include_saturday = projects_metadata["include_saturday"]
     saturday_end_time = projects_metadata["saturday_end_time"]
     is_compressed = projects_metadata["is_compressed"]
     is_overtime = projects_metadata["is_overtime"]
@@ -53,6 +66,7 @@ def _get_metadata(projects_metadata: dict):
         project_name,
         start_time,
         end_time,
+        include_saturday,
         saturday_end_time,
         is_compressed,
         is_overtime,
@@ -66,6 +80,7 @@ async def clean_attendance_spreadsheet(
         project_name,
         start_time,
         end_time,
+        include_saturday,
         saturday_end_time,
         is_compressed,
         is_overtime,
@@ -79,6 +94,7 @@ async def clean_attendance_spreadsheet(
         end_date,
         start_time,
         end_time,
+        include_saturday,
         saturday_end_time,
         is_compressed,
         is_overtime,
@@ -96,6 +112,7 @@ async def _get_employee_records(
     end_date: datetime,
     start_time: str,
     end_time: str,
+    include_saturday: bool,
     saturday_end_time: str,
     is_compressed_time: bool,
     is_overtime: bool,
@@ -119,18 +136,12 @@ async def _get_employee_records(
                     else str(raw_employee_id)
                 )
                 employee = await get_employee_profile(employee_id, project, db)
+                holiday_premium_pay = 0.0
                 if employee is None:
                     work_hours = 0.0
                     overtime_hours = 0.0
                     is_flagged = "Yes"
                     notes = "Employee profile not found."
-                elif await _worked_full_previous_day(
-                    employee, current, previous_work_hours, is_compressed_time, db
-                ):
-                    work_hours = get_full_work_hours(current, is_compressed_time)
-                    overtime_hours = 0.0
-                    is_flagged = "No"
-                    notes = None
                 else:
                     work_hours, overtime_hours, is_flagged, notes = await get_hours(
                         rows=rows,
@@ -145,6 +156,30 @@ async def _get_employee_records(
                         is_compressed_time=is_compressed_time,
                         is_overtime=is_overtime,
                     )
+                    holiday = await get_holiday(current.date(), db)
+                    if holiday is not None:
+                        if work_hours == 0 and holiday.type == HolidayType.REGULAR:
+                            if await _worked_required_previous_day_hours(
+                                employee,
+                                current,
+                                previous_work_hours,
+                                include_saturday,
+                                db,
+                            ):
+                                work_hours = REGULAR_HOLIDAY_CREDIT_HOURS
+                                overtime_hours = 0.0
+                                is_flagged = "No"
+                                notes = None
+                        elif work_hours > 0:
+                            premium_rate = (
+                                SPECIAL_NON_WORKING_HOLIDAY_PREMIUM_RATE
+                                if holiday.type == HolidayType.SPECIAL_NON_WORKING
+                                else REGULAR_HOLIDAY_PREMIUM_RATE
+                            )
+                            holiday_premium_pay = round(
+                                work_hours * (float(employee.rate) / 8) * premium_rate,
+                                2,
+                            )
                 previous_work_hours = work_hours
                 record = EmployeeAttendanceRecord(
                     employee_id=employee_id,
@@ -160,6 +195,7 @@ async def _get_employee_records(
                     date=current,
                     work_hours=work_hours,
                     overtime_hours=overtime_hours,
+                    holiday_premium_pay=holiday_premium_pay,
                     is_compressed_time=is_compressed_time,
                     is_overtime=is_overtime,
                     is_flagged=is_flagged,
@@ -174,27 +210,42 @@ async def _get_employee_records(
     return records
 
 
-async def _worked_full_previous_day(
+def _get_previous_work_day(current: date, include_saturday: bool) -> date:
+    previous = current - timedelta(days=1)
+    if previous.weekday() == 6:  # Sunday is never a work day
+        previous -= timedelta(days=1)  # Saturday
+        if not include_saturday:
+            previous -= timedelta(days=1)  # Friday
+    return previous
+
+
+async def _worked_required_previous_day_hours(
     employee,
     current: datetime,
     previous_work_hours: float | None,
-    is_compressed_time: bool,
+    include_saturday: bool,
     db: AsyncSession,
 ) -> bool:
-    if await get_holiday(current.date(), db) is None:
-        return False
+    current_date = current.date()
+    previous_date = _get_previous_work_day(current_date, include_saturday)
 
-    previous_date = (current - timedelta(days=1)).date()
+    # The batch only carries the hours for the single calendar day right
+    # before `current` (from the prior loop iteration). That's only usable
+    # here when it's also the correct previous WORK day - i.e. `current`
+    # isn't a Monday skipping back over the weekend to Friday/Saturday.
+    if previous_date != current_date - timedelta(days=1):
+        previous_work_hours = None
+
     if previous_work_hours is None:
-        # No prior day processed in this batch (current is the first day of
-        # the period): fall back to the previously persisted attendance day.
+        # No prior day usable from this batch: fall back to the previously
+        # persisted attendance day.
         previous_work_hours = await get_work_hours_on_date(
             employee.id, previous_date, db
         )
-        if previous_work_hours is None:
-            return False
+    if previous_work_hours is None:
+        return False
 
-    return previous_work_hours >= get_full_work_hours(previous_date, is_compressed_time)
+    return previous_work_hours >= REGULAR_HOLIDAY_MIN_PREVIOUS_DAY_HOURS
 
 
 def _create_cleaned_spreadsheet(
@@ -210,6 +261,7 @@ def _create_cleaned_spreadsheet(
     for col_name in [
         "Total Work Hours",
         "Overtime",
+        "Holiday Premium",
         "Rate",
         "Allowance",
         "PHIC",
@@ -249,6 +301,7 @@ def _create_cleaned_spreadsheet(
         sss_letter,
         twh_letter,
         ot_letter,
+        holiday_premium_letter,
     ) = _get_column_letters(col)
     gross_letter = get_column_letter(gross_col)
 
@@ -262,7 +315,8 @@ def _create_cleaned_spreadsheet(
         gross_formula = (
             f"=ROUND((({rate_letter}{row_idx}+{allowance_letter}{row_idx})/8)"
             f"*({twh_letter}{row_idx})"
-            f"+({ot_letter}{row_idx}*(1.25*({rate_letter}{row_idx}/8))),2)"
+            f"+({ot_letter}{row_idx}*(1.25*({rate_letter}{row_idx}/8)))"
+            f"+{holiday_premium_letter}{row_idx},2)"
         )
         net_amount_formula = (
             f"ROUND({gross_letter}{row_idx}"
@@ -310,6 +364,7 @@ def compile_spreadsheets(spreadsheets: list[BytesIO], buffer: BytesIO):
             [
                 "Rate",
                 "Allowance",
+                "Holiday Premium",
                 "PHIC",
                 "Others",
                 "HDMF",
@@ -339,6 +394,7 @@ def _create_cleaned_dict(records: list[EmployeeAttendanceRecord]):
                 "Notes": None,
                 "Total Work Hours": 0,
                 "Overtime": 0,
+                "Holiday Premium": 0,
                 "Rate": r.rate,
                 "Allowance": r.allowance,
                 "PHIC": r.phic,
@@ -359,6 +415,7 @@ def _create_cleaned_dict(records: list[EmployeeAttendanceRecord]):
         # Add work hours and overtime hours
         cleaned_dict[r.employee_id][r.date.strftime("%Y-%m-%d")] = r.work_hours
         cleaned_dict[r.employee_id]["Overtime"] += r.overtime_hours
+        cleaned_dict[r.employee_id]["Holiday Premium"] += r.holiday_premium_pay
 
     return cleaned_dict
 
@@ -372,6 +429,7 @@ def _get_column_letters(columns):
     sss_letter = get_column_letter(columns["SSS"])
     twh_letter = get_column_letter(columns["Total Work Hours"])
     ot_letter = get_column_letter(columns["Overtime"])
+    holiday_premium_letter = get_column_letter(columns["Holiday Premium"])
 
     return (
         rate_letter,
@@ -382,6 +440,7 @@ def _get_column_letters(columns):
         sss_letter,
         twh_letter,
         ot_letter,
+        holiday_premium_letter,
     )
 
 
