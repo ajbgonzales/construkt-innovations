@@ -19,10 +19,16 @@ from services.queries import (
 
 
 def compute_gross_amount(
-    rate: float, allowance: float, total_work_hours: float, overtime_hours: float
+    rate: float,
+    allowance: float,
+    total_work_hours: float,
+    overtime_hours: float,
+    holiday_premium_pay: float = 0.0,
 ) -> float:
-    gross = ((rate + allowance) / 8) * total_work_hours + overtime_hours * (
-        1.25 * (rate / 8)
+    gross = (
+        ((rate + allowance) / 8) * total_work_hours
+        + overtime_hours * (1.25 * (rate / 8))
+        + holiday_premium_pay
     )
     return round(gross, 2)
 
@@ -59,12 +65,14 @@ def _aggregate_by_employee(records: list[EmployeeAttendanceRecord]):
                 "others": r.others,
                 "total_work_hours": 0.0,
                 "overtime_hours": 0.0,
+                "holiday_premium_pay": 0.0,
                 "is_flagged": False,
                 "notes": None,
             },
         )
         agg["total_work_hours"] += r.work_hours
         agg["overtime_hours"] += r.overtime_hours
+        agg["holiday_premium_pay"] += r.holiday_premium_pay
         if r.is_flagged == "Yes":
             agg["is_flagged"] = True
         if r.notes and r.notes not in (agg["notes"] or "").split("\n"):
@@ -88,7 +96,11 @@ async def persist_payroll_records(
 
     for employee_id, agg in aggregates.items():
         gross_amount = compute_gross_amount(
-            agg["rate"], agg["allowance"], agg["total_work_hours"], agg["overtime_hours"]
+            agg["rate"],
+            agg["allowance"],
+            agg["total_work_hours"],
+            agg["overtime_hours"],
+            agg["holiday_premium_pay"],
         )
         net_amount = compute_net_amount(
             gross_amount, agg["phic"], agg["hdmf"], agg["sss"], agg["others"]
@@ -99,6 +111,7 @@ async def persist_payroll_records(
         )
         payroll_record.total_work_hours = agg["total_work_hours"]
         payroll_record.overtime_hours = agg["overtime_hours"]
+        payroll_record.holiday_premium_pay = agg["holiday_premium_pay"]
         payroll_record.rate = agg["rate"]
         payroll_record.allowance = agg["allowance"]
         payroll_record.phic = agg["phic"]

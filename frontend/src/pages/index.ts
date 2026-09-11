@@ -3,6 +3,7 @@ import Attendance from "./Attendance";
 import EmployeeProfile from "./EmployeeProfile";
 import EmployeeProfileEdit from "./EmployeeProfileEdit";
 import Employees from "./Employees";
+import Holidays from "./Holidays";
 import MainLayout from "./MainLayout";
 import NewOvertimeRequest from "./NewOvertimeRequest";
 import OvertimeRequestEdit from "./OvertimeRequestEdit";
@@ -17,6 +18,7 @@ export {
   EmployeeProfile,
   EmployeeProfileEdit,
   Employees,
+  Holidays,
   MainLayout,
   NewOvertimeRequest,
   OvertimeRequestEdit,

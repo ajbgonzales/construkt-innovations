@@ -49,10 +49,9 @@ async def get_hours(
         if _has_valid_time_logs(
             date=date,
             start_time=start_time,
+            end_time=end_time,
             time_logs=time_logs,
             next_row=next_row,
-            is_compressed_time=is_compressed_time,
-            is_overtime=is_overtime,
         ):
             time_obj_arr = _get_time_obj_arr(time_logs)
             time_in = _get_time_in(date, start_time, time_obj_arr)
@@ -79,10 +78,9 @@ async def get_hours(
 def _has_valid_time_logs(
     date: datetime,
     start_time: str,
+    end_time: str,
     time_logs: str,
     next_row,
-    is_compressed_time: bool,
-    is_overtime: bool,
 ):
     # It has the correct pattern (ex. "08:00\n17:00")
     # and no time logs in the next row
@@ -90,7 +88,7 @@ def _has_valid_time_logs(
         isinstance(next_row, str) and re.search(r"\d{2}:\d{2}", next_row)
     ):
         raise TimeLogsError(f"Invalid time logs for {date.strftime('%B %d, %Y')}.")
-    if not _is_within_range(start_time, time_logs, is_compressed_time, is_overtime):
+    if not _is_within_range(start_time, end_time, time_logs):
         raise TimeLogsError(
             f"Time logs are not within the proper range for {date.strftime('%B %d, %Y')}."
         )
@@ -99,39 +97,16 @@ def _has_valid_time_logs(
 
 def _is_within_range(
     start_time: str,
+    end_time: str,
     time_logs: str,
-    is_compressed_time: bool,
-    is_overtime: bool,
 ):
     start_time_obj = datetime.strptime(start_time, "%H:%M")
-    # break_time for compressed time is 4h30min after start_time
-    # break_time for non-compressed time is 4h after start_time
-    break_time = (
-        start_time_obj + timedelta(hours=4, minutes=30)
-        if is_compressed_time
-        else start_time_obj + timedelta(hours=4)
-    )
-    # time_out for compressed time is 8h30min after start_time
-    # time_out for non-compressed time is 9h after start_time
-    time_out = (
-        start_time_obj + timedelta(hours=8, minutes=30)
-        if is_compressed_time
-        else start_time_obj + timedelta(hours=9)
-    )
-    time_logs_arr = time_logs.strip().split("\n")
-    time_logs_obj_arr = [
-        datetime.strptime(time_obj, "%H:%M").time() for time_obj in time_logs_arr
-    ]
+    time_out_obj = datetime.strptime(end_time, "%H:%M")
+    time_logs_obj_arr = _get_time_obj_arr(time_logs)
 
-    if is_overtime:
-        return (
-            time_logs_obj_arr[0] < break_time.time()
-            and time_logs_obj_arr[1] >= break_time.time()
-        )
     return (
-        time_logs_obj_arr[0] <= break_time.time()
-        and time_logs_obj_arr[1] >= break_time.time()
-        and time_logs_obj_arr[1] <= (time_out + timedelta(minutes=10)).time()
+        time_logs_obj_arr[0] < time_out_obj.time()
+        and time_logs_obj_arr[1] > start_time_obj.time()
     )
 
 
@@ -188,9 +163,6 @@ def get_full_work_hours(date: datetime, is_compressed_time: bool) -> float:
     return 8.5 if is_compressed_time else 8
 
 
-# TODO: get accurate computation for overtime considering overtime requests
-# employees can time out before consuming all of overtime hours.
-# This function temporarily returns 0 for overtime hours
 async def _get_work_hours(
     date,
     employee,
