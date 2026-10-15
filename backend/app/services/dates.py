@@ -44,15 +44,18 @@ def week_of_month(start_date: datetime, end_date: datetime) -> int:
     returned number is that week's 1-based position among the run of
     consecutive work weeks attributed to the same month.
     """
-    length = (end_date - start_date).days + 1
+    # Step back a full calendar week regardless of how many days the work
+    # week spans (e.g. Mon-Sat is 6), so each cursor lands on the previous
+    # work week rather than drifting earlier by a day per iteration.
+    step = timedelta(days=7)
     target_month = _attributed_month(start_date, end_date)
 
     week_number = 1
-    cursor_start = start_date - timedelta(days=length)
-    cursor_end = end_date - timedelta(days=length)
+    cursor_start = start_date - step
+    cursor_end = end_date - step
     while _attributed_month(cursor_start, cursor_end) == target_month:
         week_number += 1
-        cursor_start -= timedelta(days=length)
-        cursor_end -= timedelta(days=length)
+        cursor_start -= step
+        cursor_end -= step
 
     return week_number
