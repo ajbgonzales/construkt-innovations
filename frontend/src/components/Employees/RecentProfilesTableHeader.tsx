@@ -5,7 +5,7 @@ const RecentProfilesTableHeader = () => {
   return (
     <TableHead>
       <StyledTableRow sx={{ background: "#F3F4F5" }}>
-        <TableCell colSpan={4}>
+        <TableCell colSpan={5}>
           <Typography
             sx={{
               fontSize: "1.25rem",
@@ -26,6 +26,7 @@ const RecentProfilesTableHeader = () => {
         <StyledTableCell>Employee ID</StyledTableCell>
         <StyledTableCell>Position</StyledTableCell>
         <StyledTableCell>Project</StyledTableCell>
+        <StyledTableCell>Status</StyledTableCell>
       </StyledTableRow>
     </TableHead>
   );

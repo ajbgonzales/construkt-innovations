@@ -73,17 +73,17 @@ const RecentProfilesTable: FC<RecentProfilesTableProps> = ({ search }) => {
         <TableBody>
           {isLoading && (
             <TableRow>
-              <TableCell colSpan={4}>Loading employees…</TableCell>
+              <TableCell colSpan={5}>Loading employees…</TableCell>
             </TableRow>
           )}
           {isError && (
             <TableRow>
-              <TableCell colSpan={4}>Failed to load employees.</TableCell>
+              <TableCell colSpan={5}>Failed to load employees.</TableCell>
             </TableRow>
           )}
           {!isLoading && !isError && filteredEmployees.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} sx={{ textAlign: "center" }}>
+              <TableCell colSpan={5} sx={{ textAlign: "center" }}>
                 {search
                   ? "No employees match your search."
                   : "No employees yet."}

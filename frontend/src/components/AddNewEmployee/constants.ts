@@ -3,7 +3,7 @@ interface FormControl {
   name: string;
   label: string;
   isRequired: boolean;
-  type?: "text" | "number";
+  type?: "text" | "number" | "select";
 }
 
 export const PERSONAL_INFO_ITEMS: FormControl[] = [
@@ -52,7 +52,19 @@ export const PROJECT_INFO_ITEMS: FormControl[] = [
     isRequired: true,
     type: "text",
   },
+  {
+    id: "is-active-select-field",
+    name: "isActive",
+    label: "Status",
+    isRequired: false,
+    type: "select",
+  },
 ];
+
+export const STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+] as const;
 
 export const RATE_AND_BENEFITS_ITEMS: FormControl[] = [
   {
@@ -93,7 +105,7 @@ export const RATE_AND_BENEFITS_ITEMS: FormControl[] = [
   {
     id: "others-number-field",
     name: "others",
-    label: "Others",
+    label: "Other Loans",
     isRequired: true,
     type: "number",
   },

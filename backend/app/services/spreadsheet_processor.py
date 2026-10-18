@@ -137,11 +137,18 @@ async def _get_employee_records(
                 )
                 employee = await get_employee_profile(employee_id, project, db)
                 holiday_premium_pay = 0.0
-                if employee is None:
+                if employee is None or not employee.is_active:
                     work_hours = 0.0
                     overtime_hours = 0.0
                     is_flagged = "Yes"
-                    notes = "Employee profile not found."
+                    notes = (
+                        "Employee profile not found."
+                        if employee is None
+                        else "Employee is inactive."
+                    )
+                    # Treat inactive employees like unknown ones from here on:
+                    # zero rate/deductions and no persisted payroll record.
+                    employee = None
                 else:
                     work_hours, overtime_hours, is_flagged, notes = await get_hours(
                         rows=rows,
@@ -267,7 +274,7 @@ def _create_cleaned_spreadsheet(
         "PHIC",
         "HDMF",
         "SSS",
-        "Others",
+        "Other Loans",
     ]:
         col_data = cleaned_df.pop(col_name)
         cleaned_df[col_name] = col_data
@@ -366,7 +373,7 @@ def compile_spreadsheets(spreadsheets: list[BytesIO], buffer: BytesIO):
                 "Allowance",
                 "Holiday Premium",
                 "PHIC",
-                "Others",
+                "Other Loans",
                 "HDMF",
                 "SSS",
                 "Gross Amount",
@@ -398,7 +405,7 @@ def _create_cleaned_dict(records: list[EmployeeAttendanceRecord]):
                 "Rate": r.rate,
                 "Allowance": r.allowance,
                 "PHIC": r.phic,
-                "Others": r.others,
+                "Other Loans": r.others,
                 "HDMF": r.hdmf,
                 "SSS": r.sss,
             }
@@ -424,7 +431,7 @@ def _get_column_letters(columns):
     rate_letter = get_column_letter(columns["Rate"])
     allowance_letter = get_column_letter(columns["Allowance"])
     phic_letter = get_column_letter(columns["PHIC"])
-    others_letter = get_column_letter(columns["Others"])
+    others_letter = get_column_letter(columns["Other Loans"])
     hdmf_letter = get_column_letter(columns["HDMF"])
     sss_letter = get_column_letter(columns["SSS"])
     twh_letter = get_column_letter(columns["Total Work Hours"])

@@ -32,6 +32,7 @@ class Employee(Base):
     hdmf: Mapped[float] = mapped_column(Numeric(10, 2))
     phic: Mapped[float] = mapped_column(Numeric(10, 2))
     others: Mapped[float] = mapped_column(Numeric(10, 2))
+    is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     @property
