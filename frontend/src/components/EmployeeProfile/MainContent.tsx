@@ -1,5 +1,5 @@
 import { type Employee } from "@/api/employees";
-import { Box, Grid, Typography } from "@mui/material";
+import { Box, Chip, Grid, Typography } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { type FC } from "react";
 
@@ -48,6 +48,14 @@ const MainContent: FC<MainContentProps> = ({ employee }) => {
                 <Label>Position</Label>
                 <Value>{employee.position}</Value>
               </StyledGridItem>
+              <StyledGridItem size={6}>
+                <Label>Status</Label>
+                {employee.isActive ? (
+                  <Chip label="Active" color="success" size="small" />
+                ) : (
+                  <Chip label="Inactive" color="error" size="small" />
+                )}
+              </StyledGridItem>
             </StyledGridContainer>
           </SectionContainer>
           <SectionContainer>
@@ -74,7 +82,7 @@ const MainContent: FC<MainContentProps> = ({ employee }) => {
                 <Value>&#8369; {employee.phic}</Value>
               </StyledGridItem>
               <StyledGridItem size={4}>
-                <Label>Others</Label>
+                <Label>Other Loans</Label>
                 <Value>&#8369; {employee.others}</Value>
               </StyledGridItem>
             </StyledGridContainer>
@@ -124,6 +132,7 @@ const StyledGridContainer = styled(Grid)({
 
 const StyledGridItem = styled(Grid)({
   justifyItems: "start",
+  textAlign: "left",
 });
 
 const Value = styled(Typography)({

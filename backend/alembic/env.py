@@ -16,6 +16,11 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from db import Base
 
+# Import every ORM model module so it registers onto Base.metadata before
+# target_metadata is captured below -- without this, autogenerate sees an
+# empty target schema and generates migrations that drop all real tables.
+import orm  # noqa: E402, F401
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

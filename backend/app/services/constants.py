@@ -11,7 +11,7 @@ NON_DATE_COLUMNS = {
     "Rate",
     "Allowance",
     "PHIC",
-    "Others",
+    "Other Loans",
     "HDMF",
     "SSS",
 }

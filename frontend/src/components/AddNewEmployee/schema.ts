@@ -23,12 +23,13 @@ export const addNewEmployeeSchema = z.object({
   employeeId: z.string().min(1, "Employee ID is required"),
   project: z.string().min(1, "Project is required"),
   position: z.string().min(1, "Position is required"),
+  isActive: z.boolean(),
   rate: requiredNumberField("Rate"),
   allowance: requiredNumberField("Allowance"),
   sss: requiredNumberField("SSS"),
   hdmf: requiredNumberField("HDMF"),
   phic: requiredNumberField("PHIC"),
-  others: requiredNumberField("Others"),
+  others: requiredNumberField("Other Loans"),
 });
 
 export type AddNewEmployeeFormValues = z.infer<typeof addNewEmployeeSchema>;

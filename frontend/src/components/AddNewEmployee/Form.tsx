@@ -4,7 +4,9 @@ import {
   Divider,
   FormHelperText,
   Grid,
+  MenuItem,
   OutlinedInput,
+  Select,
   Typography,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
@@ -19,6 +21,7 @@ import {
   PERSONAL_INFO_ITEMS,
   PROJECT_INFO_ITEMS,
   RATE_AND_BENEFITS_ITEMS,
+  STATUS_OPTIONS,
 } from "./constants";
 import {
   addNewEmployeeSchema,
@@ -44,6 +47,7 @@ const Form = () => {
       employeeId: "",
       project: "",
       position: "",
+      isActive: true,
       rate: "0",
       allowance: "0",
       sss: "0",
@@ -142,10 +146,29 @@ const Form = () => {
             <Controller
               name={item.name as keyof AddNewEmployeeFormInput}
               control={control}
-              render={({ field, fieldState }) =>
-                item.name === "project" ? (
-                  <ProjectAutocomplete id={item.id} control={control} />
-                ) : (
+              render={({ field, fieldState }) => {
+                if (item.name === "project") {
+                  return <ProjectAutocomplete id={item.id} control={control} />;
+                }
+                if (item.type === "select") {
+                  return (
+                    <Select
+                      id={item.id}
+                      value={field.value ? "active" : "inactive"}
+                      onChange={(e) =>
+                        field.onChange(e.target.value === "active")
+                      }
+                      sx={{ textAlign: "left" }}
+                    >
+                      {STATUS_OPTIONS.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  );
+                }
+                return (
                   <>
                     <OutlinedInput
                       {...field}
@@ -159,8 +182,8 @@ const Form = () => {
                       </FormHelperText>
                     )}
                   </>
-                )
-              }
+                );
+              }}
             />
           </Grid>
         ))}
@@ -259,11 +282,11 @@ const Container = styled(Box)({
 }) as typeof Box;
 
 const InputLabel = styled(Typography)({
-  width: "100%",
-  textAlign: "start",
-  fontWeight: 600,
   textTransform: "uppercase",
-  fontSize: "0.75rem",
+  fontWeight: 800,
+  color: "#897365",
+  fontSize: "0.625rem",
+  textAlign: "left",
 });
 
 const SectionLabel = styled(Divider)({

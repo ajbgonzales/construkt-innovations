@@ -183,6 +183,8 @@ async def get_holiday_pay_eligibility(
 async def generate_payslips_for_period(period: PayrollPeriod, db: AsyncSession):
     payslips = []
     for payroll_record in period.payroll_records:
+        if not payroll_record.employee_ref.is_active:
+            continue
         holiday_date, is_eligible = await get_holiday_pay_eligibility(
             period, payroll_record.employee_id, db
         )

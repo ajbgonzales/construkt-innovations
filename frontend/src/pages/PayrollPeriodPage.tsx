@@ -42,7 +42,6 @@ const PayrollPeriodPage = () => {
             id={data.id}
             startDate={data.startDate}
             endDate={data.endDate}
-            payrollRecords={data.payrollRecords}
           />
           <MainContent payrollPeriod={data} />
         </>
