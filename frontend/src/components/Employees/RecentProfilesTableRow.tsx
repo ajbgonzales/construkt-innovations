@@ -1,5 +1,5 @@
 import type { Employee } from "@/api/employees";
-import { TableCell, TableRow } from "@mui/material";
+import { Chip, TableCell, TableRow } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { type FC } from "react";
 import { Link } from "react-router";
@@ -21,6 +21,13 @@ const RecentProfilesTableRow: FC<RecentProfilesTableRowProps> = ({
       <StyledTableCell>{employee.employeeId}</StyledTableCell>
       <StyledTableCell>{employee.position}</StyledTableCell>
       <StyledTableCell>{employee.project}</StyledTableCell>
+      <StyledTableCell>
+        {employee.isActive ? (
+          <Chip label="Active" color="success" size="small" />
+        ) : (
+          <Chip label="Inactive" color="error" size="small" />
+        )}
+      </StyledTableCell>
     </TableRow>
   );
 };

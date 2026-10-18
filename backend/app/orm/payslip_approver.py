@@ -2,13 +2,21 @@ import uuid
 from datetime import datetime
 
 from db import Base
-from sqlalchemy import Boolean, LargeBinary, func
+from sqlalchemy import Boolean, CheckConstraint, LargeBinary, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 
 class PayslipApprover(Base):
     __tablename__ = "payslip_approvers"
+    __table_args__ = (
+        CheckConstraint(
+            "singleton_guard IS TRUE", name="ck_payslip_approvers_singleton_guard"
+        ),
+        UniqueConstraint(
+            "singleton_guard", name="uq_payslip_approvers_singleton_guard"
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4

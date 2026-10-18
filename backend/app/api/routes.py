@@ -28,6 +28,7 @@ from orm.employee import Employee
 from orm.holiday import Holiday
 from orm.overtime_request import OvertimeRequest
 from orm.payroll_period import PayrollPeriod
+from orm.payroll_record import PayrollRecord
 from orm.payslip import Payslip
 from orm.project import Project
 from pydantic import ValidationError
@@ -45,7 +46,7 @@ from services.spreadsheet_processor import (
 from sqlalchemy import func, select, text, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import contains_eager, selectinload
 
 router = APIRouter()
 
@@ -231,6 +232,10 @@ async def import_employees(
 
     for index, raw_row in enumerate(df.to_dict("records")):
         row = clean_row(raw_row)
+        # is_active isn't part of the import format; imported employees
+        # always start out active.
+        row.pop("is_active", None)
+        row.pop("isActive", None)
         spreadsheet_row = index + 2  # +1 for 0-index, +1 for the header row
         try:
             payload = EmployeeCreate(**row)
@@ -537,15 +542,25 @@ async def list_payroll_periods(db: AsyncSession = Depends(get_db)):
 
 @router.get("/payroll-periods/{id}", response_model=PayrollPeriodDetailRead)
 async def get_payroll_period(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(PayrollPeriod)
-        .options(selectinload(PayrollPeriod.payroll_records))
-        .where(PayrollPeriod.id == id)
-    )
-    period = result.scalar_one_or_none()
+    period = await db.get(PayrollPeriod, id)
     if period is None:
         raise HTTPException(status_code=404, detail="Payroll period not found.")
-    return period
+
+    result = await db.execute(
+        select(PayrollRecord)
+        .join(PayrollRecord.employee_ref)
+        .options(contains_eager(PayrollRecord.employee_ref))
+        .where(PayrollRecord.payroll_period_id == id, Employee.is_active)
+    )
+    payroll_records = result.scalars().all()
+
+    return {
+        "id": period.id,
+        "start_date": period.start_date,
+        "end_date": period.end_date,
+        "created_at": period.created_at,
+        "payroll_records": payroll_records,
+    }
 
 
 @router.get("/payroll-periods/{id}/spreadsheet")
@@ -598,7 +613,9 @@ async def generate_payslips(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 async def list_payslips(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Payslip)
-        .where(Payslip.payroll_period_id == id)
+        .join(Payslip.employee_ref)
+        .options(contains_eager(Payslip.employee_ref))
+        .where(Payslip.payroll_period_id == id, Employee.is_active)
         .order_by(Payslip.generated_at.desc())
     )
     return result.scalars().all()
@@ -658,6 +675,12 @@ async def send_payslip(
     if payslip is None or payslip.payroll_period_id != id:
         raise HTTPException(status_code=404, detail="Payslip not found.")
 
+    if not payslip.employee_ref.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{payslip.employee_full_name} is inactive.",
+        )
+
     if not payslip.employee_ref.email_address:
         raise HTTPException(
             status_code=400,
@@ -683,7 +706,12 @@ async def send_payslips(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if period is None:
         raise HTTPException(status_code=404, detail="Payroll period not found.")
 
-    result = await db.execute(select(Payslip).where(Payslip.payroll_period_id == id))
+    result = await db.execute(
+        select(Payslip)
+        .join(Payslip.employee_ref)
+        .options(contains_eager(Payslip.employee_ref))
+        .where(Payslip.payroll_period_id == id, Employee.is_active)
+    )
     payslips = result.scalars().all()
     if not payslips:
         raise HTTPException(

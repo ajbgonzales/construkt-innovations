@@ -4,6 +4,7 @@ import {
   PERSONAL_INFO_ITEMS,
   PROJECT_INFO_ITEMS,
   RATE_AND_BENEFITS_ITEMS,
+  STATUS_OPTIONS,
 } from "@/components/AddNewEmployee/constants";
 import ProjectAutocomplete from "@/components/AddNewEmployee/ProjectAutocomplete";
 import {
@@ -17,7 +18,9 @@ import {
   Button,
   FormHelperText,
   Grid,
+  MenuItem,
   OutlinedInput,
+  Select,
   Typography,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
@@ -49,6 +52,7 @@ const MainContent: FC<MainContentProps> = ({ employee }) => {
       employeeId: employee.employeeId,
       project: employee.project,
       position: employee.position,
+      isActive: employee.isActive,
       rate: employee.rate.toString(),
       allowance: employee.allowance.toString(),
       sss: employee.sss.toString(),
@@ -155,10 +159,31 @@ const MainContent: FC<MainContentProps> = ({ employee }) => {
                 <Controller
                   name={item.name as keyof AddNewEmployeeFormInput}
                   control={control}
-                  render={({ field, fieldState }) =>
-                    item.name === "project" ? (
-                      <ProjectAutocomplete id={item.id} control={control} />
-                    ) : (
+                  render={({ field, fieldState }) => {
+                    if (item.name === "project") {
+                      return (
+                        <ProjectAutocomplete id={item.id} control={control} />
+                      );
+                    }
+                    if (item.type === "select") {
+                      return (
+                        <Select
+                          id={item.id}
+                          value={field.value ? "active" : "inactive"}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === "active")
+                          }
+                          sx={{ textAlign: "left" }}
+                        >
+                          {STATUS_OPTIONS.map((option) => (
+                            <MenuItem key={option.value} value={option.value}>
+                              {option.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      );
+                    }
+                    return (
                       <>
                         <OutlinedInput
                           {...field}
@@ -172,8 +197,8 @@ const MainContent: FC<MainContentProps> = ({ employee }) => {
                           </FormHelperText>
                         )}
                       </>
-                    )
-                  }
+                    );
+                  }}
                 />
               </Grid>
             ))}
@@ -246,6 +271,7 @@ const Label = styled(Typography)({
   fontWeight: 800,
   color: "#897365",
   fontSize: "0.625rem",
+  textAlign: "left",
 });
 
 const SectionContainer = styled(Box)({
