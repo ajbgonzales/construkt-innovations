@@ -14,7 +14,8 @@ from alembic import context
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-from db import Base
+# These imports need app/ on sys.path and .env loaded first.
+from db import Base  # noqa: E402
 
 # Import every ORM model module so it registers onto Base.metadata before
 # target_metadata is captured below -- without this, autogenerate sees an
